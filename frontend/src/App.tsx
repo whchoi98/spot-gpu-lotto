@@ -9,10 +9,9 @@ import JobDetail from "@/pages/JobDetail";
 import Templates from "@/pages/Templates";
 import Dashboard from "@/pages/Dashboard";
 import Settings from "@/pages/Settings";
-
-function Placeholder({ name }: { name: string }) {
-  return <div className="text-lg text-muted-foreground">{name} — coming soon</div>;
-}
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminJobs from "@/pages/admin/AdminJobs";
+import AdminRegions from "@/pages/admin/AdminRegions";
 
 const user = getUserFromToken();
 
@@ -28,9 +27,9 @@ export default function App() {
           <Route path="/prices" element={<Prices />} />
           <Route path="/templates" element={<Templates />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/admin" element={<Placeholder name="Admin Dashboard" />} />
-          <Route path="/admin/jobs" element={<Placeholder name="Admin Jobs" />} />
-          <Route path="/admin/regions" element={<Placeholder name="Admin Regions" />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/jobs" element={<AdminJobs />} />
+          <Route path="/admin/regions" element={<AdminRegions />} />
         </Route>
       </Routes>
     </AuthContext.Provider>
