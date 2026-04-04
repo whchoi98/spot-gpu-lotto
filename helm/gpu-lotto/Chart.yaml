@@ -1,0 +1,7 @@
+# helm/gpu-lotto/Chart.yaml
+apiVersion: v2
+name: gpu-lotto
+description: GPU Spot Lotto — multi-region GPU job orchestration
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
