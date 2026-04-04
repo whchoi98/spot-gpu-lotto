@@ -1,0 +1,104 @@
+# helm/gpu-lotto/templates/networkpolicy.yaml
+{{- if .Values.networkPolicy.enabled }}
+# API Server: allow from ALB ingress only (+ prometheus scrape)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-api-server
+  namespace: {{ include "gpu-lotto.namespace" . }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: api-server
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - port: {{ .Values.apiServer.port }}
+          protocol: TCP
+  egress:
+    - ports:
+        - port: 6379
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Dispatcher: no inbound, outbound to Redis + S3 + EKS API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-dispatcher
+  namespace: {{ include "gpu-lotto.namespace" . }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dispatcher
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - port: 6379
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Price Watcher: no inbound, outbound to Redis + EC2 API
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-price-watcher
+  namespace: {{ include "gpu-lotto.namespace" . }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: price-watcher
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - ports:
+        - port: 6379
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Frontend: allow inbound HTTP only
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-frontend
+  namespace: {{ include "gpu-lotto.namespace" . }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - port: {{ .Values.frontend.port }}
+          protocol: TCP
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+{{- end }}
