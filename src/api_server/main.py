@@ -1,6 +1,8 @@
 """FastAPI application setup."""
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 from common.logging import setup_logging
 from common.redis_client import get_redis, close_redis
@@ -30,3 +32,8 @@ app.include_router(jobs_router)
 app.include_router(upload_router)
 app.include_router(templates_router)
 app.include_router(admin_router)
+
+
+@app.get("/metrics")
+async def metrics():
+    return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
