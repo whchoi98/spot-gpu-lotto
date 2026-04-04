@@ -4,6 +4,8 @@ import { getUserFromToken } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Prices from "@/pages/Prices";
 import Jobs from "@/pages/Jobs";
+import JobNew from "@/pages/JobNew";
+import JobDetail from "@/pages/JobDetail";
 
 function Placeholder({ name }: { name: string }) {
   return <div className="text-lg text-muted-foreground">{name} — coming soon</div>;
@@ -18,8 +20,8 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Placeholder name="Dashboard" />} />
           <Route path="/jobs" element={<Jobs />} />
-          <Route path="/jobs/new" element={<Placeholder name="New Job" />} />
-          <Route path="/jobs/:id" element={<Placeholder name="Job Detail" />} />
+          <Route path="/jobs/new" element={<JobNew />} />
+          <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="/prices" element={<Prices />} />
           <Route path="/templates" element={<Placeholder name="Templates" />} />
           <Route path="/settings" element={<Placeholder name="Settings" />} />
