@@ -1,0 +1,44 @@
+# helm/gpu-lotto/templates/frontend/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-frontend
+  namespace: {{ include "gpu-lotto.namespace" . }}
+  labels:
+    {{- include "gpu-lotto.labels" . | nindent 4 }}
+    app.kubernetes.io/name: frontend
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frontend
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.frontend.serviceAccount.name }}
+      containers:
+        - name: frontend
+          image: "{{ .Values.global.image.registry }}/{{ .Values.frontend.image.repository }}:{{ .Values.global.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.frontend.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /nginx-health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /nginx-health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}

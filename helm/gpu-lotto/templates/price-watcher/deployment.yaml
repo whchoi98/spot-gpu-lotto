@@ -1,0 +1,34 @@
+# helm/gpu-lotto/templates/price-watcher/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-price-watcher
+  namespace: {{ include "gpu-lotto.namespace" . }}
+  labels:
+    {{- include "gpu-lotto.labels" . | nindent 4 }}
+    app.kubernetes.io/name: price-watcher
+spec:
+  replicas: {{ .Values.priceWatcher.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: price-watcher
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: price-watcher
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.priceWatcher.serviceAccount.name }}
+      containers:
+        - name: price-watcher
+          image: "{{ .Values.global.image.registry }}/{{ .Values.priceWatcher.image.repository }}:{{ .Values.global.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "gpu-lotto.fullname" . }}-config
+          env:
+            - name: PYTHONPATH
+              value: /app/src
+          resources:
+            {{- toYaml .Values.priceWatcher.resources | nindent 12 }}
