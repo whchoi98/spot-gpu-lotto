@@ -2,15 +2,16 @@
 import json
 import time
 import uuid
+
 import redis.asyncio as aioredis
 
 from common.config import get_settings
+from common.k8s_client import get_k8s_client
 from common.logging import get_logger
 from common.models import JobStatus
-from common.k8s_client import get_k8s_client
-from dispatcher.region_selector import select_region
-from dispatcher.pod_builder import build_gpu_pod
 from dispatcher.notifier import notify_job_status
+from dispatcher.pod_builder import build_gpu_pod
+from dispatcher.region_selector import select_region
 
 log = get_logger("queue_processor")
 

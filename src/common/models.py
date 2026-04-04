@@ -1,5 +1,6 @@
 """Shared data models for GPU Spot Lotto."""
 from enum import StrEnum
+
 from pydantic import BaseModel
 
 

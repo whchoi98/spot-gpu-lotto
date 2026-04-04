@@ -1,15 +1,16 @@
 """Job submission, status, cancellation, and SSE streaming."""
 from __future__ import annotations
 
-import json
 import asyncio
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
+from api_server.auth import CurrentUser, get_current_user
+from common.models import JobRecord, JobRequest, JobStatus
 from common.redis_client import get_redis
-from common.models import JobRequest, JobStatus, JobRecord
-from api_server.auth import get_current_user, CurrentUser
 
 router = APIRouter(prefix="/api", tags=["jobs"])
 

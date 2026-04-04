@@ -1,6 +1,6 @@
 # src/tests/conftest.py
-import pytest
 import fakeredis.aioredis
+import pytest
 
 
 @pytest.fixture

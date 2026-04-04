@@ -1,9 +1,9 @@
 """Cognito JWT authentication middleware for ALB-forwarded requests."""
-import json
 import base64
+import json
 from dataclasses import dataclass
 
-from fastapi import Request, HTTPException, Depends
+from fastapi import Depends, HTTPException, Request
 
 from common.config import get_settings
 from common.logging import get_logger

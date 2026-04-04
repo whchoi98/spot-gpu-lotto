@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
+from api_server.auth import CurrentUser, get_current_user
 from common.redis_client import get_redis
-from api_server.auth import get_current_user, CurrentUser
 
 router = APIRouter(prefix="/api", tags=["prices"])
 

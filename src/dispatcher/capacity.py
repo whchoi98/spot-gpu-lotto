@@ -5,32 +5,32 @@ import redis.asyncio as aioredis
 async def acquire_capacity(r: aioredis.Redis, region: str) -> bool:
     """
     Atomically try to acquire one GPU slot in the region.
-    
+
     In production with real Redis, this could use a Lua script for guaranteed atomicity.
     For testing/FakeRedis compatibility, we use a transaction.
     """
     key = f"gpu:capacity:{region}"
-    
+
     # Use a transaction for atomicity
     async with r.pipeline(transaction=True) as pipe:
         while True:
             try:
                 # Watch the key for changes
                 await pipe.watch(key)
-                
+
                 # Get current capacity (outside transaction)
                 cap = await pipe.get(key)
-                
+
                 if cap is None:
                     # Key doesn't exist
                     await pipe.unwatch()
                     return False
-                
+
                 cap_val = int(cap)
                 if cap_val <= 0:
                     await pipe.unwatch()
                     return False
-                
+
                 # Try to decrement atomically
                 pipe.multi()
                 pipe.decr(key)

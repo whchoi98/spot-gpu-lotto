@@ -1,13 +1,15 @@
 """Admin-only endpoints for system management."""
 from __future__ import annotations
+
 import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from common.redis_client import get_redis
-from common.models import JobRecord, JobStatus
+from api_server.auth import CurrentUser, require_admin
 from common.config import get_settings
-from api_server.auth import require_admin, CurrentUser
+from common.models import JobStatus
+from common.redis_client import get_redis
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 

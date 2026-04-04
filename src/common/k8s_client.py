@@ -1,7 +1,6 @@
 """Cross-cluster Kubernetes client manager using Pod Identity."""
-import subprocess
 import json
-from functools import lru_cache
+import subprocess
 
 from kubernetes import client
 
@@ -66,8 +65,8 @@ def invalidate_client(region: str) -> None:
 def _write_ca_cert(ca_data: str, region: str) -> str:
     """Write base64-decoded CA cert to temp file, return path."""
     import base64
-    import tempfile
     import os
+    import tempfile
 
     cert_bytes = base64.b64decode(ca_data)
     path = os.path.join(tempfile.gettempdir(), f"eks-ca-{region}.pem")

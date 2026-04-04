@@ -2,8 +2,8 @@
 import asyncio
 
 from common.config import get_settings
-from common.logging import setup_logging, get_logger
-from common.redis_client import get_redis, close_redis
+from common.logging import get_logger, setup_logging
+from common.redis_client import close_redis, get_redis
 from price_watcher.collector import collect_all_prices, update_prices
 
 log = get_logger("price_watcher")

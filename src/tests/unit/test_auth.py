@@ -1,8 +1,10 @@
-import json
 import base64
+import json
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
 from fastapi import HTTPException
+
 from api_server.auth import CurrentUser, _decode_jwt_payload, get_current_user, require_admin
 
 

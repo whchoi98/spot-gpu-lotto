@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+
 import redis.asyncio as aioredis
 
 from common.config import get_settings

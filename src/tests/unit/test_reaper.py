@@ -1,8 +1,9 @@
 # src/tests/unit/test_reaper.py
 import time
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
-from common.models import JobStatus
+
 from dispatcher.reaper import reap_job
 
 

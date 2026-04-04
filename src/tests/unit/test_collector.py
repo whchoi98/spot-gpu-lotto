@@ -1,9 +1,16 @@
 import pytest
-from price_watcher.collector import collect_mock_prices, update_prices, collect_all_prices
 
+from price_watcher.collector import collect_all_prices, collect_mock_prices, update_prices
 
 REGIONS = ["us-east-1", "us-east-2", "us-west-2"]
-INSTANCE_TYPES = ["g6.xlarge", "g5.xlarge", "g6e.xlarge", "g6e.2xlarge", "g5.12xlarge", "g5.48xlarge"]
+INSTANCE_TYPES = [
+    "g6.xlarge",
+    "g5.xlarge",
+    "g6e.xlarge",
+    "g6e.2xlarge",
+    "g5.12xlarge",
+    "g5.48xlarge",
+]
 
 
 async def test_mock_prices_count():

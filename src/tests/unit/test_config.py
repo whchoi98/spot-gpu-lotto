@@ -1,12 +1,17 @@
-import os
-import pytest
 from common.config import Settings
 
 
 def test_default_settings():
     s = Settings(redis_url="redis://localhost:6379")
     assert s.regions == ["us-east-1", "us-east-2", "us-west-2"]
-    assert s.instance_types == ["g6.xlarge", "g5.xlarge", "g6e.xlarge", "g6e.2xlarge", "g5.12xlarge", "g5.48xlarge"]
+    assert s.instance_types == [
+        "g6.xlarge",
+        "g5.xlarge",
+        "g6e.xlarge",
+        "g6e.2xlarge",
+        "g5.12xlarge",
+        "g5.48xlarge",
+    ]
     assert s.poll_interval == 60
     assert s.reap_interval == 10
     assert s.job_timeout == 7200

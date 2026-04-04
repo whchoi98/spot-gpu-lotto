@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from api_server.main import app
 
 
@@ -26,7 +28,11 @@ async def seeded_prices(redis):
 async def test_get_all_prices(client, seeded_prices):
     with patch("api_server.auth.get_settings") as mock_s:
         mock_s.return_value.auth_enabled = False
-        with patch("api_server.routes.prices.get_redis", new_callable=AsyncMock, return_value=seeded_prices):
+        with patch(
+            "api_server.routes.prices.get_redis",
+            new_callable=AsyncMock,
+            return_value=seeded_prices,
+        ):
             resp = await client.get("/api/prices")
     assert resp.status_code == 200
     data = resp.json()
@@ -36,7 +42,11 @@ async def test_get_all_prices(client, seeded_prices):
 async def test_get_prices_filtered(client, seeded_prices):
     with patch("api_server.auth.get_settings") as mock_s:
         mock_s.return_value.auth_enabled = False
-        with patch("api_server.routes.prices.get_redis", new_callable=AsyncMock, return_value=seeded_prices):
+        with patch(
+            "api_server.routes.prices.get_redis",
+            new_callable=AsyncMock,
+            return_value=seeded_prices,
+        ):
             resp = await client.get("/api/prices?instance_type=g6.xlarge")
     assert resp.status_code == 200
     data = resp.json()
@@ -48,7 +58,11 @@ async def test_get_prices_filtered(client, seeded_prices):
 async def test_get_prices_empty(client, redis):
     with patch("api_server.auth.get_settings") as mock_s:
         mock_s.return_value.auth_enabled = False
-        with patch("api_server.routes.prices.get_redis", new_callable=AsyncMock, return_value=redis):
+        with patch(
+            "api_server.routes.prices.get_redis",
+            new_callable=AsyncMock,
+            return_value=redis,
+        ):
             resp = await client.get("/api/prices")
     assert resp.status_code == 200
     assert resp.json()["prices"] == []

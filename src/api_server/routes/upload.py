@@ -1,11 +1,12 @@
 """S3 presigned upload URL generation."""
 from __future__ import annotations
+
 import boto3
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from api_server.auth import CurrentUser, get_current_user
 from common.config import get_settings
-from api_server.auth import get_current_user, CurrentUser
 
 router = APIRouter(prefix="/api", tags=["upload"])
 

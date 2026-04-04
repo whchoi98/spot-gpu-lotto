@@ -1,4 +1,3 @@
-import pytest
 from dispatcher.pod_builder import build_gpu_pod
 
 

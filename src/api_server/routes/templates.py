@@ -1,11 +1,13 @@
 """Job template CRUD endpoints."""
 from __future__ import annotations
+
 import json
+
 from fastapi import APIRouter, Depends, HTTPException
 
-from common.redis_client import get_redis
+from api_server.auth import CurrentUser, get_current_user
 from common.models import TemplateEntry
-from api_server.auth import get_current_user, CurrentUser
+from common.redis_client import get_redis
 
 router = APIRouter(prefix="/api", tags=["templates"])
 

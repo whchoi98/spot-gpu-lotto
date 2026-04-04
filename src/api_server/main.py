@@ -1,17 +1,18 @@
 """FastAPI application setup."""
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from common.logging import setup_logging
-from common.redis_client import get_redis, close_redis
-from api_server.routes.health import router as health_router
-from api_server.routes.prices import router as prices_router
-from api_server.routes.jobs import router as jobs_router
-from api_server.routes.upload import router as upload_router
-from api_server.routes.templates import router as templates_router
 from api_server.routes.admin import router as admin_router
+from api_server.routes.health import router as health_router
+from api_server.routes.jobs import router as jobs_router
+from api_server.routes.prices import router as prices_router
+from api_server.routes.templates import router as templates_router
+from api_server.routes.upload import router as upload_router
+from common.logging import setup_logging
+from common.redis_client import close_redis, get_redis
 
 
 @asynccontextmanager

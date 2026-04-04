@@ -1,5 +1,4 @@
-import pytest
-from common.models import JobRequest, JobStatus, JobRecord, PriceEntry, TemplateEntry
+from common.models import JobRecord, JobRequest, JobStatus, PriceEntry, TemplateEntry
 
 
 def test_job_request_defaults():

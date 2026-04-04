@@ -4,9 +4,9 @@ from __future__ import annotations
 import asyncio
 
 from common.config import get_settings
-from common.logging import setup_logging, get_logger
-from common.redis_client import get_redis, close_redis
 from common.k8s_client import get_k8s_client
+from common.logging import get_logger, setup_logging
+from common.redis_client import close_redis, get_redis
 from dispatcher.capacity import init_capacity
 from dispatcher.queue_processor import process_queue
 from dispatcher.reaper import reap_job

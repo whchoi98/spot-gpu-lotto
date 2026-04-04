@@ -1,8 +1,9 @@
 import json
-import httpx
-import pytest
 from unittest.mock import AsyncMock, patch
-from dispatcher.notifier import publish_status, send_webhook, notify_job_status
+
+import httpx
+
+from dispatcher.notifier import notify_job_status, publish_status, send_webhook
 
 
 async def test_publish_status(redis):

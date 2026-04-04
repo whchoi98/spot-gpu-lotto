@@ -1,5 +1,6 @@
 """Job status notification via Redis Pub/Sub and webhooks."""
 import json
+
 import httpx
 import redis.asyncio as aioredis
 

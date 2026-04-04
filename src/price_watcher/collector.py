@@ -1,10 +1,10 @@
 """Collect GPU Spot instance prices from AWS across regions."""
 import asyncio
 import random
+
 import aioboto3
 import redis.asyncio as aioredis
 
-from common.config import get_settings
 from common.logging import get_logger
 
 log = get_logger("collector")

@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from api_server.main import app
 
 
@@ -14,7 +16,11 @@ async def client():
 async def test_template_crud(client, redis):
     with patch("api_server.auth.get_settings") as mock_s:
         mock_s.return_value.auth_enabled = False
-        with patch("api_server.routes.templates.get_redis", new_callable=AsyncMock, return_value=redis):
+        with patch(
+            "api_server.routes.templates.get_redis",
+            new_callable=AsyncMock,
+            return_value=redis,
+        ):
             # Save
             resp = await client.post("/api/templates", json={
                 "name": "Test Template",
@@ -46,6 +52,10 @@ async def test_template_crud(client, redis):
 async def test_delete_nonexistent_template(client, redis):
     with patch("api_server.auth.get_settings") as mock_s:
         mock_s.return_value.auth_enabled = False
-        with patch("api_server.routes.templates.get_redis", new_callable=AsyncMock, return_value=redis):
+        with patch(
+            "api_server.routes.templates.get_redis",
+            new_callable=AsyncMock,
+            return_value=redis,
+        ):
             resp = await client.delete("/api/templates/nope")
     assert resp.status_code == 404
