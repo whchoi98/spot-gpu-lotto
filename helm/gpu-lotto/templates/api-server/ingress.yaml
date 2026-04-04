@@ -1,0 +1,41 @@
+# helm/gpu-lotto/templates/api-server/ingress.yaml
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-ingress
+  namespace: {{ include "gpu-lotto.namespace" . }}
+  labels:
+    {{- include "gpu-lotto.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if .Values.ingress.certificateArn }}
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificateArn | quote }}
+    {{- end }}
+    {{- if .Values.ingress.cognitoUserPoolArn }}
+    alb.ingress.kubernetes.io/auth-type: cognito
+    alb.ingress.kubernetes.io/auth-idp-cognito: >-
+      {"userPoolARN":"{{ .Values.ingress.cognitoUserPoolArn }}","userPoolClientID":"{{ .Values.ingress.cognitoClientId }}","userPoolDomain":"{{ .Values.ingress.cognitoUserPoolDomain }}"}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "gpu-lotto.fullname" . }}-api-server
+                port:
+                  number: {{ .Values.apiServer.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "gpu-lotto.fullname" . }}-frontend
+                port:
+                  number: {{ .Values.frontend.port }}
+{{- end }}
