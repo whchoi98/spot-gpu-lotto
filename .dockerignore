@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.git/
+.github/
+docs/
+k8s/
+terraform/
+frontend/
+*.md
+!README.md
