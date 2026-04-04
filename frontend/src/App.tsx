@@ -7,6 +7,8 @@ import Jobs from "@/pages/Jobs";
 import JobNew from "@/pages/JobNew";
 import JobDetail from "@/pages/JobDetail";
 import Templates from "@/pages/Templates";
+import Dashboard from "@/pages/Dashboard";
+import Settings from "@/pages/Settings";
 
 function Placeholder({ name }: { name: string }) {
   return <div className="text-lg text-muted-foreground">{name} — coming soon</div>;
@@ -19,13 +21,13 @@ export default function App() {
     <AuthContext.Provider value={user}>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Placeholder name="Dashboard" />} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/jobs/new" element={<JobNew />} />
           <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="/prices" element={<Prices />} />
           <Route path="/templates" element={<Templates />} />
-          <Route path="/settings" element={<Placeholder name="Settings" />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/admin" element={<Placeholder name="Admin Dashboard" />} />
           <Route path="/admin/jobs" element={<Placeholder name="Admin Jobs" />} />
           <Route path="/admin/regions" element={<Placeholder name="Admin Regions" />} />
