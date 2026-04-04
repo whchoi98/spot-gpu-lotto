@@ -1,0 +1,21 @@
+services:
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  test-runner:
+    build:
+      context: .
+      target: base
+    command: >
+      sh -c "pip install --no-cache-dir '.[dev]' && pytest src/tests/ -v"
+    environment:
+      REDIS_URL: redis://redis:6379
+      PYTHONPATH: /app/src
+    depends_on:
+      redis:
+        condition: service_healthy
