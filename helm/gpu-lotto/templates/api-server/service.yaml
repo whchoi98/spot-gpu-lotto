@@ -1,0 +1,19 @@
+# helm/gpu-lotto/templates/api-server/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-api-server
+  namespace: {{ include "gpu-lotto.namespace" . }}
+  labels:
+    {{- include "gpu-lotto.labels" . | nindent 4 }}
+    app.kubernetes.io/name: api-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.apiServer.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: api-server
+    app.kubernetes.io/instance: {{ .Release.Name }}
