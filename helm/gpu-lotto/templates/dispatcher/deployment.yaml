@@ -1,0 +1,34 @@
+# helm/gpu-lotto/templates/dispatcher/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-dispatcher
+  namespace: {{ include "gpu-lotto.namespace" . }}
+  labels:
+    {{- include "gpu-lotto.labels" . | nindent 4 }}
+    app.kubernetes.io/name: dispatcher
+spec:
+  replicas: {{ .Values.dispatcher.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dispatcher
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dispatcher
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.dispatcher.serviceAccount.name }}
+      containers:
+        - name: dispatcher
+          image: "{{ .Values.global.image.registry }}/{{ .Values.dispatcher.image.repository }}:{{ .Values.global.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "gpu-lotto.fullname" . }}-config
+          env:
+            - name: PYTHONPATH
+              value: /app/src
+          resources:
+            {{- toYaml .Values.dispatcher.resources | nindent 12 }}
