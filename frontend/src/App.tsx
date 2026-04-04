@@ -2,6 +2,8 @@ import { Routes, Route } from "react-router-dom";
 import { AuthContext } from "@/hooks/useAuth";
 import { getUserFromToken } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
+import Prices from "@/pages/Prices";
+import Jobs from "@/pages/Jobs";
 
 function Placeholder({ name }: { name: string }) {
   return <div className="text-lg text-muted-foreground">{name} — coming soon</div>;
@@ -15,10 +17,10 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Placeholder name="Dashboard" />} />
-          <Route path="/jobs" element={<Placeholder name="Jobs" />} />
+          <Route path="/jobs" element={<Jobs />} />
           <Route path="/jobs/new" element={<Placeholder name="New Job" />} />
           <Route path="/jobs/:id" element={<Placeholder name="Job Detail" />} />
-          <Route path="/prices" element={<Placeholder name="Prices" />} />
+          <Route path="/prices" element={<Prices />} />
           <Route path="/templates" element={<Placeholder name="Templates" />} />
           <Route path="/settings" element={<Placeholder name="Settings" />} />
           <Route path="/admin" element={<Placeholder name="Admin Dashboard" />} />
