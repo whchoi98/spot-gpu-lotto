@@ -1,0 +1,16 @@
+# helm/gpu-lotto/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-config
+  namespace: {{ include "gpu-lotto.namespace" . }}
+  labels:
+    {{- include "gpu-lotto.labels" . | nindent 4 }}
+data:
+  REDIS_URL: {{ .Values.config.redisUrl | quote }}
+  AUTH_ENABLED: {{ .Values.config.authEnabled | quote }}
+  K8S_MODE: {{ .Values.config.k8sMode | quote }}
+  PRICE_MODE: {{ .Values.config.priceMode | quote }}
+  POLL_INTERVAL: {{ .Values.config.pollInterval | quote }}
+  SPOT_REGIONS: {{ .Values.config.spotRegions | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}

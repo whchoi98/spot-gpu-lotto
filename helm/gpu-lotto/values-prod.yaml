@@ -1,0 +1,27 @@
+# helm/gpu-lotto/values-prod.yaml
+global:
+  image:
+    pullPolicy: Always
+
+config:
+  authEnabled: "true"
+  k8sMode: "real"
+  priceMode: "real"
+  pollInterval: "30"
+
+apiServer:
+  replicas: 2
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+
+ingress:
+  enabled: true
+
+networkPolicy:
+  enabled: true
+
+monitoring:
+  enabled: true

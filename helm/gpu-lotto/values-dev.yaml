@@ -1,0 +1,28 @@
+# helm/gpu-lotto/values-dev.yaml
+config:
+  redisUrl: "redis://redis:6379"
+  authEnabled: "false"
+  k8sMode: "dry-run"
+  priceMode: "mock"
+  pollInterval: "10"
+
+apiServer:
+  replicas: 1
+  hpa:
+    enabled: false
+
+dispatcher:
+  pdb:
+    enabled: false
+
+frontend:
+  replicas: 1
+
+ingress:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+monitoring:
+  enabled: false

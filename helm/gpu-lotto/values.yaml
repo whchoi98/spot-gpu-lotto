@@ -1,0 +1,111 @@
+# helm/gpu-lotto/values.yaml
+namespace: gpu-lotto
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  image:
+    registry: ""  # e.g., 123456789.dkr.ecr.ap-northeast-2.amazonaws.com
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+config:
+  redisUrl: "redis://redis:6379"
+  authEnabled: "true"
+  k8sMode: "real"
+  priceMode: "real"
+  pollInterval: "30"
+  spotRegions: "us-east-1,us-east-2,us-west-2"
+  logLevel: "info"
+
+apiServer:
+  replicas: 2
+  image:
+    repository: gpu-lotto/api-server
+  port: 8000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+  serviceAccount:
+    name: api-server
+    annotations: {}
+
+dispatcher:
+  replicas: 1
+  image:
+    repository: gpu-lotto/dispatcher
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  pdb:
+    enabled: true
+    minAvailable: 0
+  serviceAccount:
+    name: dispatcher
+    annotations: {}
+
+priceWatcher:
+  replicas: 1
+  image:
+    repository: gpu-lotto/price-watcher
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  serviceAccount:
+    name: price-watcher
+    annotations: {}
+
+frontend:
+  replicas: 2
+  image:
+    repository: gpu-lotto/frontend
+  port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  serviceAccount:
+    name: frontend
+    annotations: {}
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/idle-timeout: "300"
+  certificateArn: ""
+  cognitoUserPoolArn: ""
+  cognitoClientId: ""
+  cognitoUserPoolDomain: ""
+
+networkPolicy:
+  enabled: true
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    interval: 15s
