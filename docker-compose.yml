@@ -1,0 +1,47 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api-server:
+    build:
+      context: .
+      target: api-server
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379
+      AUTH_ENABLED: "false"
+      K8S_MODE: "dry-run"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  dispatcher:
+    build:
+      context: .
+      target: dispatcher
+    environment:
+      REDIS_URL: redis://redis:6379
+      K8S_MODE: "dry-run"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  price-watcher:
+    build:
+      context: .
+      target: price-watcher
+    environment:
+      REDIS_URL: redis://redis:6379
+      PRICE_MODE: "mock"
+      POLL_INTERVAL: "10"
+    depends_on:
+      redis:
+        condition: service_healthy
