@@ -8,6 +8,7 @@ import redis.asyncio as aioredis
 from common.config import get_settings
 from common.k8s_client import get_k8s_client
 from common.logging import get_logger
+from common.metrics import JOBS_DISPATCHED, JOBS_FAILED, JOBS_RETRIED, QUEUE_DEPTH
 from common.models import JobStatus
 from dispatcher.notifier import notify_job_status
 from dispatcher.pod_builder import build_gpu_pod
@@ -31,9 +32,11 @@ async def process_one_job(r: aioredis.Redis, job_json: str) -> dict:
         if retry_count < settings.max_retries:
             job["_retry_count"] = retry_count + 1
             await r.lpush("gpu:job:queue", json.dumps(job))
+            JOBS_RETRIED.inc()
             log.warning("no_capacity_requeue", job_id=job_id, retry=retry_count + 1)
             return {"job_id": job_id, "status": "requeued"}
         else:
+            JOBS_FAILED.labels(reason="no_capacity").inc()
             log.error("no_capacity_max_retries", job_id=job_id)
             return {"job_id": job_id, "status": "failed", "error": "no_capacity"}
 
@@ -52,7 +55,7 @@ async def process_one_job(r: aioredis.Redis, job_json: str) -> dict:
     now = str(int(time.time()))
     await r.hset(f"gpu:jobs:{job_id}", mapping={
         "job_id": job_id,
-        "user_id": job.get("user_id", "unknown"),
+        "user_id": job.get("user_id") or "unknown",
         "region": region,
         "status": JobStatus.RUNNING,
         "pod_name": pod.metadata.name,
@@ -60,21 +63,27 @@ async def process_one_job(r: aioredis.Redis, job_json: str) -> dict:
         "created_at": now,
         "retry_count": "0",
         "checkpoint_enabled": str(job.get("checkpoint_enabled", False)).lower(),
-        "webhook_url": job.get("webhook_url", ""),
+        "webhook_url": job.get("webhook_url") or "",
     })
     await r.sadd("gpu:active_jobs", job_id)
 
     # Notify
     await notify_job_status(r, job_id, "running", region=region, spot_price=price)
 
+    JOBS_DISPATCHED.labels(region=region).inc()
     log.info("job_dispatched", job_id=job_id, region=region, price=price)
     return {"job_id": job_id, "region": region, "spot_price": price, "status": "running"}
 
 
 async def process_queue(r: aioredis.Redis) -> None:
     """Main BRPOP loop — runs forever."""
-    log.info("queue_processor_started")
+    settings = get_settings()
+    log.info("queue_processor_started", dispatch_mode=settings.dispatch_mode)
+    if settings.dispatch_mode == "agent":
+        log.info("agent_mode_active", msg="Jobs are handled by AgentCore agent. Queue processor idle.")
     while True:
+        queue_len = await r.llen("gpu:job:queue")
+        QUEUE_DEPTH.set(queue_len)
         item = await r.brpop("gpu:job:queue", timeout=5)
         if item:
             _, job_json = item
