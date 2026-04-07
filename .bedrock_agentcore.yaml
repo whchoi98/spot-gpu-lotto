@@ -1,0 +1,10 @@
+# AgentCore deployment configuration for GPU Spot Lotto Agent
+agent_name: gpu-spot-lotto-agent
+entrypoint: src/agent/app.py
+runtime: PYTHON_3_11
+requirements_file: requirements-agent.txt
+deployment_type: direct_code_deploy
+region: ap-northeast-2
+protocol: HTTP
+disable_otel: false
+disable_memory: true

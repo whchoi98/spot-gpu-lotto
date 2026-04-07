@@ -1,0 +1,8 @@
+bedrock-agentcore
+strands-agents
+strands-agents-tools
+redis
+pydantic
+pydantic-settings
+httpx
+structlog
