@@ -1,6 +1,13 @@
 """BedrockAgentCore entrypoint for the GPU Spot Lotto agent."""
-from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from strands import Agent
+import sys
+from pathlib import Path
+
+# AgentCore Runtime places source at /var/task/src/agent/app.py.
+# Add /var/task/src to sys.path so "from agent.xxx" and "from common.xxx" resolve.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from bedrock_agentcore.runtime import BedrockAgentCoreApp  # noqa: E402
+from strands import Agent  # noqa: E402
 
 from agent.system_prompt import SYSTEM_PROMPT
 from agent.tools import (
