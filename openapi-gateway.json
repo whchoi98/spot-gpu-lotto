@@ -1,0 +1,449 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "GPU Spot Lotto API",
+    "version": "0.1.0",
+    "description": "Multi-region GPU Spot instance price monitoring and job dispatch API"
+  },
+  "paths": {
+    "/api/prices": {
+      "get": {
+        "tags": [
+          "prices"
+        ],
+        "summary": "Get Prices",
+        "description": "Return current Spot prices from all regions.",
+        "operationId": "get_prices_api_prices_get",
+        "parameters": [
+          {
+            "name": "instance_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by instance type",
+              "title": "Instance Type"
+            },
+            "description": "Filter by instance type"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Submit Job",
+        "description": "Submit a GPU job to the queue. Returns job_id immediately.",
+        "operationId": "submit_job_api_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Job",
+        "description": "Get job status.",
+        "operationId": "get_job_api_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Cancel Job",
+        "description": "Cancel a running job.",
+        "operationId": "cancel_job_api_jobs__job_id__delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/jobs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List All Jobs",
+        "operationId": "list_all_jobs_api_admin_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/stats": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Get Stats",
+        "operationId": "get_stats_api_admin_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CapacityUpdate": {
+        "properties": {
+          "capacity": {
+            "type": "integer",
+            "title": "Capacity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capacity"
+        ],
+        "title": "CapacityUpdate"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "JobRequest": {
+        "properties": {
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "image": {
+            "type": "string",
+            "title": "Image",
+            "default": "nvidia/cuda:12.0-base"
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Command",
+            "default": [
+              "/bin/sh",
+              "-c",
+              "nvidia-smi && sleep 60"
+            ]
+          },
+          "instance_type": {
+            "type": "string",
+            "title": "Instance Type",
+            "default": "g6.xlarge"
+          },
+          "gpu_type": {
+            "type": "string",
+            "title": "Gpu Type",
+            "default": "l4"
+          },
+          "gpu_count": {
+            "type": "integer",
+            "title": "Gpu Count",
+            "default": 1
+          },
+          "storage_mode": {
+            "type": "string",
+            "title": "Storage Mode",
+            "default": "s3"
+          },
+          "checkpoint_enabled": {
+            "type": "boolean",
+            "title": "Checkpoint Enabled",
+            "default": false
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Url"
+          }
+        },
+        "type": "object",
+        "title": "JobRequest"
+      },
+      "PresignRequest": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "prefix": {
+            "type": "string",
+            "title": "Prefix",
+            "default": "models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename"
+        ],
+        "title": "PresignRequest"
+      },
+      "TemplateEntry": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "image": {
+            "type": "string",
+            "title": "Image"
+          },
+          "instance_type": {
+            "type": "string",
+            "title": "Instance Type",
+            "default": "g6.xlarge"
+          },
+          "gpu_count": {
+            "type": "integer",
+            "title": "Gpu Count",
+            "default": 1
+          },
+          "gpu_type": {
+            "type": "string",
+            "title": "Gpu Type",
+            "default": "l4"
+          },
+          "storage_mode": {
+            "type": "string",
+            "title": "Storage Mode",
+            "default": "s3"
+          },
+          "checkpoint_enabled": {
+            "type": "boolean",
+            "title": "Checkpoint Enabled",
+            "default": false
+          },
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Command",
+            "default": [
+              "/bin/sh",
+              "-c",
+              "nvidia-smi && sleep 60"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "image"
+        ],
+        "title": "TemplateEntry"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WebhookSettings": {
+        "properties": {
+          "webhook_url": {
+            "type": "string",
+            "title": "Webhook Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "webhook_url"
+        ],
+        "title": "WebhookSettings"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://d370iz4ydsallw.cloudfront.net"
+    }
+  ]
+}
