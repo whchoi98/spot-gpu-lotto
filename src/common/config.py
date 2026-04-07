@@ -1,6 +1,7 @@
 """Application settings loaded from environment variables."""
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -25,12 +26,25 @@ class Settings(BaseSettings):
     max_retries: int = 2
     capacity_per_region: int = 16
 
+    # Cluster naming: {cluster_prefix}-{region_short} e.g. gpu-lotto-dev-use1
+    cluster_prefix: str = "gpu-lotto-dev"
+
     # Feature flags
     auth_enabled: bool = True
     k8s_mode: str = "live"       # "live" or "dry-run"
     price_mode: str = "live"     # "live" or "mock"
 
+    # Agent
+    dispatch_mode: str = "rule"  # "rule" or "agent"
+    agent_model: str = "global.anthropic.claude-sonnet-4-6"
+
     model_config = {"env_prefix": "", "case_sensitive": False}
+
+    @model_validator(mode="after")
+    def validate_dispatch_mode(self) -> "Settings":
+        if self.dispatch_mode not in ("rule", "agent"):
+            raise ValueError(f"dispatch_mode must be 'rule' or 'agent', got '{self.dispatch_mode}'")
+        return self
 
 
 @lru_cache
