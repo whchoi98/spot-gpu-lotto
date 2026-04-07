@@ -3,9 +3,13 @@
 Each tool has an `_impl` async function (testable with fakeredis)
 and a sync @tool wrapper that resolves the Redis dependency at call time.
 """
+import asyncio
 import json
 
 import redis.asyncio as aioredis
+from strands import tool
+
+from common.redis_client import get_redis
 
 
 async def check_spot_prices_impl(
@@ -110,3 +114,106 @@ async def get_failure_history_impl(r: aioredis.Redis) -> str:
         "by_region": by_region,
         "by_reason": by_reason,
     })
+
+
+def _run(coro):
+    """Run async function from sync @tool context."""
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            return pool.submit(asyncio.run, coro).result()
+    return loop.run_until_complete(coro)
+
+
+@tool
+def check_spot_prices(
+    instance_type: str = "",
+    region: str = "",
+) -> str:
+    """Check current GPU Spot instance prices across all regions.
+
+    Args:
+        instance_type: Filter by instance type (e.g. "g6.xlarge"). Empty for all.
+        region: Filter by region (e.g. "us-east-1"). Empty for all.
+
+    Returns:
+        JSON array of prices sorted cheapest first, with available capacity per region.
+    """
+    async def _run_query():
+        r = await get_redis()
+        return await check_spot_prices_impl(
+            r,
+            instance_type=instance_type or None,
+            region=region or None,
+        )
+    return _run(_run_query())
+
+
+@tool
+def submit_gpu_job(
+    instance_type: str,
+    image: str = "nvidia/cuda:12.0-base",
+    command: str = "nvidia-smi && sleep 60",
+    gpu_count: int = 1,
+    checkpoint_enabled: bool = False,
+) -> str:
+    """Submit a GPU training/inference job to the scheduling queue.
+
+    Args:
+        instance_type: EC2 instance type (e.g. "g6.xlarge", "g5.12xlarge").
+        image: Docker image to run.
+        command: Shell command to execute inside the container.
+        gpu_count: Number of GPUs required.
+        checkpoint_enabled: Whether to enable checkpointing.
+
+    Returns:
+        JSON confirmation with queued status.
+    """
+    async def _run_submit():
+        r = await get_redis()
+        return await submit_job_impl(r, instance_type, image, command, gpu_count, checkpoint_enabled)
+    return _run(_run_submit())
+
+
+@tool
+def get_job_status(job_id: str) -> str:
+    """Get the current status of a GPU job.
+
+    Args:
+        job_id: The UUID of the job to check.
+
+    Returns:
+        JSON with job status, region, instance type, and error info if failed.
+    """
+    async def _run_status():
+        r = await get_redis()
+        return await get_job_status_impl(r, job_id)
+    return _run(_run_status())
+
+
+@tool
+def list_active_jobs() -> str:
+    """List all currently running GPU jobs.
+
+    Returns:
+        JSON array of active job summaries with status, region, and instance type.
+    """
+    async def _run_list():
+        r = await get_redis()
+        return await list_active_jobs_impl(r)
+    return _run(_run_list())
+
+
+@tool
+def get_failure_history() -> str:
+    """Analyze recent job failure patterns to identify unstable regions.
+
+    Returns:
+        JSON with failure counts grouped by region and by error reason.
+        Use this to avoid regions with high preemption or failure rates.
+    """
+    async def _run_history():
+        r = await get_redis()
+        return await get_failure_history_impl(r)
+    return _run(_run_history())
