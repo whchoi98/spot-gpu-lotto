@@ -117,13 +117,13 @@ async def get_failure_history_impl(r: aioredis.Redis) -> str:
 
 
 def _run(coro):
-    """Run async function from sync @tool context."""
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, coro).result()
-    return loop.run_until_complete(coro)
+    """Run async function from sync @tool context.
+
+    Strands calls @tool functions from a thread pool, so there is no running
+    event loop in the current thread. We simply use asyncio.run() which creates
+    a fresh loop for each call.
+    """
+    return asyncio.run(coro)
 
 
 @tool
