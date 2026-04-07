@@ -172,7 +172,9 @@ def submit_gpu_job(
     """
     async def _run_submit():
         r = await get_redis()
-        return await submit_job_impl(r, instance_type, image, command, gpu_count, checkpoint_enabled)
+        return await submit_job_impl(
+            r, instance_type, image, command, gpu_count, checkpoint_enabled,
+        )
     return _run(_run_submit())
 
 
