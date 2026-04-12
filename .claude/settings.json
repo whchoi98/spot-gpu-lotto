@@ -13,14 +13,22 @@
     "deny": [
       "Bash(rm -rf:*)",
       "Bash(rm -r:*)",
+      "Bash(rm -f:*)",
       "Bash(git push --force:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push --delete:*)",
       "Bash(git reset --hard:*)",
       "Bash(git clean -f:*)",
+      "Bash(git filter-branch:*)",
       "Bash(chmod 777:*)",
       "Bash(curl * | bash:*)",
+      "Bash(curl * | sh:*)",
       "Bash(wget * | bash:*)",
+      "Bash(wget * | sh:*)",
       "Bash(eval:*)",
-      "Bash(terraform destroy:*)"
+      "Bash(exec:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(kubectl delete namespace:*)"
     ]
   },
   "hooks": {
@@ -41,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/secret-scan.sh 2>/dev/null || true"
+            "command": "bash .claude/hooks/secret-scan.sh"
           }
         ]
       }

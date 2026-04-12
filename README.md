@@ -724,7 +724,7 @@ cd frontend && npx tsc --noEmit
 - 이슈: GitHub Issues 탭에서 버그 보고 또는 기능 요청을 제출하십시오.
 
 <!-- harness-eval-badge:start -->
-![Harness Score](https://img.shields.io/badge/harness-6.6%2F10-orange)
+![Harness Score](https://img.shields.io/badge/harness-6.7%2F10-orange)
 ![Harness Grade](https://img.shields.io/badge/grade-C-orange)
-![Last Eval](https://img.shields.io/badge/eval-2026--04--07-blue)
+![Last Eval](https://img.shields.io/badge/eval-2026--04--12-blue)
 <!-- harness-eval-badge:end -->

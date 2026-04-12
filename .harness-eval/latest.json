@@ -1,0 +1,30 @@
+{
+  "scores": {
+    "overall": 6.7,
+    "grade": "C"
+  },
+  "score": 6.7,
+  "grade": "C",
+  "mode": "full",
+  "timestamp": "2026-04-12T00:00:00Z",
+  "dimensions": {
+    "correctness": 8,
+    "safety": 5,
+    "completeness": 7,
+    "consistency": 6,
+    "actionability": 7,
+    "testability": 8,
+    "costEfficiency": 8,
+    "contractBasedTesting": 7,
+    "agentCommunication": 5,
+    "contextManagement": 8,
+    "feedbackLoopMaturity": 5,
+    "evolvability": 7
+  },
+  "categoryAverages": {
+    "basicQuality": 6.5,
+    "operational": 7.5,
+    "designQuality": 6.25
+  },
+  "id": "eval-2026-04-12-002"
+}
