@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 
+from prometheus_client import start_http_server
+
 from common.config import get_settings
 from common.k8s_client import get_k8s_client
 from common.logging import get_logger, setup_logging
@@ -50,6 +52,10 @@ async def reap_loop(r) -> None:
 
 async def main() -> None:
     setup_logging()
+    try:
+        start_http_server(9090)
+    except OSError as e:
+        log.warning("metrics_server_failed", port=9090, error=str(e))
     settings = get_settings()
     r = await get_redis()
 

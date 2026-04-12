@@ -1,6 +1,8 @@
 """Price Watcher entrypoint — polls Spot prices on interval."""
 import asyncio
 
+from prometheus_client import start_http_server
+
 from common.config import get_settings
 from common.logging import get_logger, setup_logging
 from common.redis_client import close_redis, get_redis
@@ -34,6 +36,10 @@ async def price_loop(r) -> None:
 
 async def main() -> None:
     setup_logging()
+    try:
+        start_http_server(9090)
+    except OSError as e:
+        log.warning("metrics_server_failed", port=9090, error=str(e))
     r = await get_redis()
     log.info("price_watcher_started")
 

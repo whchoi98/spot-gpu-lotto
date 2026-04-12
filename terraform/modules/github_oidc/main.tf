@@ -34,13 +34,19 @@ resource "aws_iam_role" "github_actions" {
 }
 
 data "aws_iam_policy_document" "github_actions" {
+  # Base ECR auth (always needed for docker login)
+  statement {
+    sid       = "ECRAuth"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
   # ECR push
   dynamic "statement" {
     for_each = length(var.ecr_repo_arns) > 0 ? [1] : []
     content {
       sid = "ECRPush"
       actions = [
-        "ecr:GetAuthorizationToken",
         "ecr:BatchCheckLayerAvailability",
         "ecr:GetDownloadUrlForLayer",
         "ecr:BatchGetImage",
@@ -49,7 +55,7 @@ data "aws_iam_policy_document" "github_actions" {
         "ecr:UploadLayerPart",
         "ecr:CompleteLayerUpload",
       ]
-      resources = ["*"]
+      resources = var.ecr_repo_arns
     }
   }
 

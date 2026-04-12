@@ -9,6 +9,7 @@ import JobDetail from "@/pages/JobDetail";
 import Templates from "@/pages/Templates";
 import Dashboard from "@/pages/Dashboard";
 import Settings from "@/pages/Settings";
+import Guide from "@/pages/Guide";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminJobs from "@/pages/admin/AdminJobs";
 import AdminRegions from "@/pages/admin/AdminRegions";
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="/prices" element={<Prices />} />
           <Route path="/templates" element={<Templates />} />
+          <Route path="/guide" element={<Guide />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/jobs" element={<AdminJobs />} />

@@ -1,0 +1,18 @@
+# False positive samples — these must NOT trigger secret detection
+
+# Normal base64 strings
+dGhpcyBpcyBhIHRlc3Q=
+aW1hZ2UgZGF0YQ==
+
+# Empty or short values
+password = ""
+api_key = "short"
+secret = ""
+
+# Code comments mentioning patterns
+# This regex matches AKIA followed by 16 chars
+# The Slack token format is xoxb-NUMBER-STRING
+
+# Variable names (not values)
+AWS_ACCESS_KEY_ID=
+SLACK_BOT_TOKEN=

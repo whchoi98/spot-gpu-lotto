@@ -16,6 +16,7 @@ config:
   priceMode: "real"
   pollInterval: "30"
   spotRegions: "us-east-1,us-east-2,us-west-2"
+  clusterPrefix: "gpu-lotto-dev"
   logLevel: "info"
 
 apiServer:
@@ -77,6 +78,7 @@ frontend:
   image:
     repository: gpu-lotto/frontend
   port: 80
+  kubeDnsIp: "172.20.0.10"
   resources:
     requests:
       cpu: 50m

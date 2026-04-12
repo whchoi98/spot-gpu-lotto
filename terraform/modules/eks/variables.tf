@@ -31,10 +31,22 @@ variable "endpoint_public_access" {
   default     = false
 }
 
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to access the public EKS endpoint"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
 variable "enable_node_group" {
   description = "Create a managed node group (Seoul control plane only)"
   type        = bool
   default     = false
+}
+
+variable "admin_principal_arn" {
+  description = "Stable IAM role/user ARN for EKS cluster admin access"
+  type        = string
+  default     = ""
 }
 
 variable "node_instance_types" {

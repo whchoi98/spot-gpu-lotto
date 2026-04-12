@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { saveWebhookUrl } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Settings() {
+  const { t } = useTranslation();
   const [webhookUrl, setWebhookUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -25,25 +27,22 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="text-2xl font-bold">{t("settings_title")}</h1>
 
       {saved && (
         <Alert>
-          <AlertDescription>Webhook URL saved successfully.</AlertDescription>
+          <AlertDescription>{t("settings_saved")}</AlertDescription>
         </Alert>
       )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Webhook Notifications</CardTitle>
+          <CardTitle>{t("settings_webhook")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Set a default webhook URL to receive notifications when jobs complete or fail.
-            This URL will be used for all new job submissions unless overridden.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("settings_webhook_desc")}</p>
           <div className="space-y-2">
-            <Label htmlFor="webhook">Webhook URL</Label>
+            <Label htmlFor="webhook">{t("settings_webhook_label")}</Label>
             <Input
               id="webhook"
               value={webhookUrl}
@@ -53,7 +52,7 @@ export default function Settings() {
             />
           </div>
           <Button onClick={handleSave} disabled={saving || !webhookUrl.trim()}>
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("settings_saving") : t("settings_save")}
           </Button>
         </CardContent>
       </Card>

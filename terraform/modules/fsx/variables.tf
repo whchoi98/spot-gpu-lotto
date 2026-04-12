@@ -14,6 +14,16 @@ variable "security_group_ids" {
   type        = list(string)
 }
 
+variable "vpc_id" {
+  description = "VPC ID for FSx security group"
+  type        = string
+}
+
+variable "subnet_cidr" {
+  description = "CIDR block of the VPC for Lustre LNET traffic"
+  type        = string
+}
+
 variable "s3_import_path" {
   description = "S3 path for data repository (e.g., s3://bucket-name)"
   type        = string

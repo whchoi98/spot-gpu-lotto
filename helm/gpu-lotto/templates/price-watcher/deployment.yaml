@@ -30,5 +30,9 @@ spec:
           env:
             - name: PYTHONPATH
               value: /app/src
+          ports:
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
           resources:
             {{- toYaml .Values.priceWatcher.resources | nindent 12 }}

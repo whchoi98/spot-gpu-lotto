@@ -7,6 +7,11 @@ dist/
 .mypy_cache/
 .ruff_cache/
 
+# Environment
+.env
+.env.local
+.env.*.local
+
 # Docker
 docker-compose.override.yml
 
@@ -15,3 +20,10 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/**/*.tsbuildinfo
+
+# AgentCore (auto-generated, contains account-specific values)
+.bedrock_agentcore.yaml
+.bedrock_agentcore/
+
+# Helm secret values (contain infrastructure endpoints)
+helm/**/values-*.secret.yaml

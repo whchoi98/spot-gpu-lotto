@@ -34,6 +34,14 @@ def _get_eks_endpoint(cluster_name: str, region: str) -> tuple[str, str]:
     return data["endpoint"], data["ca"]
 
 
+_REGION_SHORT = {
+    "us-east-1": "use1",
+    "us-east-2": "use2",
+    "us-west-2": "usw2",
+    "ap-northeast-2": "seoul",
+}
+
+
 def get_k8s_client(region: str) -> client.CoreV1Api:
     """Get a K8s API client for the given region's EKS cluster."""
     settings = get_settings()
@@ -43,7 +51,14 @@ def get_k8s_client(region: str) -> client.CoreV1Api:
         return _create_dry_run_client()
 
     if region not in _clients:
-        cluster_name = f"gpu-lotto-{region}"
+        short = _REGION_SHORT.get(region)
+        if short is None:
+            raise ValueError(
+                f"Unsupported region '{region}'. "
+                f"Add it to _REGION_SHORT in k8s_client.py. "
+                f"Known regions: {list(_REGION_SHORT.keys())}"
+            )
+        cluster_name = f"{settings.cluster_prefix}-{short}"
         endpoint, ca_data = _get_eks_endpoint(cluster_name, region)
         token = _get_eks_token(cluster_name, region)
 

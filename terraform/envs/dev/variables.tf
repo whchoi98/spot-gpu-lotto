@@ -69,6 +69,18 @@ variable "github_repo" {
   default     = "spot-gpu-lotto"
 }
 
+variable "eks_admin_principal_arn" {
+  description = "Stable IAM role ARN for EKS admin access (set in tfvars)"
+  type        = string
+  default     = ""
+}
+
+variable "eks_public_access_cidrs" {
+  description = "CIDR blocks allowed to access EKS public endpoints (set in tfvars)"
+  type        = list(string)
+  default     = []
+}
+
 variable "origin_verify_secret" {
   description = "Secret value for CloudFront X-Origin-Verify header"
   type        = string

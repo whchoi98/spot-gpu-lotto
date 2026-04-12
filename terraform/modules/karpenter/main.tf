@@ -68,6 +68,7 @@ resource "kubectl_manifest" "gpu_node_class" {
       name = "gpu-spot"
     }
     spec = {
+      role = var.node_role_name
       ephemeralStorage = {
         size = "100Gi"
       }
@@ -82,7 +83,7 @@ resource "kubectl_manifest" "gpu_node_class" {
       securityGroupSelectorTerms = [
         {
           tags = {
-            "karpenter.sh/discovery" = var.cluster_name
+            "aws:eks:cluster-name" = var.cluster_name
           }
         },
       ]

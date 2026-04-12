@@ -1,10 +1,18 @@
 # helm/gpu-lotto/values-dev.yaml
+# NOTE: registry and redisUrl must be provided via --set or values-dev.secret.yaml
+#   helm upgrade gpu-lotto ... --set global.image.registry=$ECR_REGISTRY --set config.redisUrl=$REDIS_URL
+global:
+  image:
+    registry: ""  # set via CI: 123456789.dkr.ecr.ap-northeast-2.amazonaws.com
+    tag: "v9"
+
 config:
-  redisUrl: "redis://redis:6379"
+  redisUrl: ""  # set via CI: rediss://master.<cluster>.cache.amazonaws.com:6379
   authEnabled: "false"
   k8sMode: "dry-run"
-  priceMode: "mock"
-  pollInterval: "10"
+  clusterPrefix: "gpu-lotto-dev"
+  priceMode: "live"
+  pollInterval: "30"
 
 apiServer:
   replicas: 1
@@ -17,6 +25,8 @@ dispatcher:
 
 frontend:
   replicas: 1
+  image:
+    tag: "v6"
 
 ingress:
   enabled: false
@@ -25,4 +35,4 @@ networkPolicy:
   enabled: false
 
 monitoring:
-  enabled: false
+  enabled: true

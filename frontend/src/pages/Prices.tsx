@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { usePrices } from "@/hooks/usePrices";
 import { PriceTable } from "@/components/prices/PriceTable";
 import {
@@ -12,33 +13,32 @@ const INSTANCE_TYPES = [
 ];
 
 export default function Prices() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<string | undefined>(undefined);
   const { data: prices, isLoading } = usePrices(filter);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Spot Prices</h1>
+        <h1 className="text-2xl font-bold">{t("prices_title")}</h1>
         <Select
           value={filter ?? "all"}
           onValueChange={(v) => setFilter(v === "all" ? undefined : v)}
         >
           <SelectTrigger className="w-48">
-            <SelectValue placeholder="All instances" />
+            <SelectValue placeholder={t("prices_all")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All instances</SelectItem>
-            {INSTANCE_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
+            <SelectItem value="all">{t("prices_all")}</SelectItem>
+            {INSTANCE_TYPES.map((tp) => (
+              <SelectItem key={tp} value={tp}>{tp}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Prices refresh every 30 seconds. Sorted cheapest-first.
-      </p>
+      <p className="text-sm text-muted-foreground">{t("prices_refresh")}</p>
       <Card>
-        <CardHeader><CardTitle>Current Spot Prices (3 Regions)</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("prices_current")}</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="space-y-2">

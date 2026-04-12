@@ -4,13 +4,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
   <img src="https://img.shields.io/badge/python-3.11-blue.svg" alt="Python" />
   <img src="https://img.shields.io/badge/react-18-61DAFB.svg" alt="React" />
   <img src="https://img.shields.io/badge/terraform-1.x-7B42BC.svg" alt="Terraform" />
   <img src="https://img.shields.io/badge/helm-3-0F1689.svg" alt="Helm" />
-  <img src="https://img.shields.io/badge/lang-en-red.svg" alt="English" />
-  <img src="https://img.shields.io/badge/lang-ko-yellow.svg" alt="Korean" />
+  <a href="#english"><img src="https://img.shields.io/badge/lang-en-red.svg" alt="English" /></a>
+  <a href="#한국어"><img src="https://img.shields.io/badge/lang-ko-yellow.svg" alt="Korean" /></a>
 </p>
 
 ---

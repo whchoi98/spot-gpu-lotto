@@ -1,0 +1,65 @@
+# helm/monitoring-values-dev.yaml
+# Lightweight kube-prometheus-stack for dev environment
+
+prometheus:
+  prometheusSpec:
+    # Minimal resources for dev
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    # Scrape our app namespace
+    serviceMonitorSelectorNilUsesHelmValues: false
+    retention: 3d
+    # No persistent storage for dev — emptyDir
+    storageSpec: {}
+
+grafana:
+  adminPassword: gpu-lotto-dev-2026
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s/grafana/"
+      serve_from_sub_path: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  persistence:
+    enabled: false
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL
+
+# Disable components not needed for dev
+alertmanager:
+  enabled: false
+
+nodeExporter:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+kubeStateMetrics:
+  enabled: true
+
+# Disable etcd/scheduler/proxy monitoring (EKS manages these)
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeControllerManager:
+  enabled: false

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { fetchAdminJobs } from "@/lib/api";
 import { JobTable } from "@/components/jobs/JobTable";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus } from "lucide-react";
 
 export default function Jobs() {
+  const { t } = useTranslation();
   const { data: jobs, isLoading } = useQuery({
     queryKey: ["admin-jobs"],
     queryFn: fetchAdminJobs,
@@ -17,16 +19,16 @@ export default function Jobs() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">My Jobs</h1>
+        <h1 className="text-2xl font-bold">{t("jobs_title")}</h1>
         <Button asChild>
           <Link to="/jobs/new">
             <Plus className="mr-2 h-4 w-4" />
-            New Job
+            {t("dash_new_job")}
           </Link>
         </Button>
       </div>
       <Card>
-        <CardHeader><CardTitle>Job History</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t("jobs_history")}</CardTitle></CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="space-y-2">

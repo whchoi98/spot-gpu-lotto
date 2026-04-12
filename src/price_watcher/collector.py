@@ -6,6 +6,7 @@ import aioboto3
 import redis.asyncio as aioredis
 
 from common.logging import get_logger
+from common.metrics import PRICE_FETCH_ERRORS, SPOT_PRICE
 
 log = get_logger("collector")
 
@@ -73,6 +74,7 @@ async def collect_all_prices(
     for region, result in zip(regions, results):
         if isinstance(result, Exception):
             log.error("price_fetch_failed", region=region, error=str(result))
+            PRICE_FETCH_ERRORS.inc()
             continue
         all_prices.extend(result)
     return all_prices
@@ -88,5 +90,7 @@ async def update_prices(r: aioredis.Redis, prices: list[dict]) -> int:
         key = f"{p['region']}:{p['instance_type']}"
         mapping[key] = p["price"]
     await r.zadd("gpu:spot:prices", mapping)
+    for p in prices:
+        SPOT_PRICE.labels(region=p["region"], instance_type=p["instance_type"]).set(p["price"])
     log.info("prices_updated", count=len(mapping))
     return len(mapping)

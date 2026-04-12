@@ -52,10 +52,10 @@ module "eks_seoul" {
   vpc_id                  = module.vpc_seoul.vpc_id
   subnet_ids              = module.vpc_seoul.private_subnet_ids
   endpoint_private_access = true
-  endpoint_public_access  = false
+  endpoint_public_access  = true
+  public_access_cidrs     = var.eks_public_access_cidrs
+  admin_principal_arn     = var.eks_admin_principal_arn
   enable_node_group       = true
-  node_instance_types     = ["t3.medium"]
-  node_desired_size       = 2
 }
 
 module "eks_use1" {
@@ -67,6 +67,8 @@ module "eks_use1" {
   subnet_ids              = module.vpc_use1.private_subnet_ids
   endpoint_private_access = true
   endpoint_public_access  = true
+  public_access_cidrs     = var.eks_public_access_cidrs
+  admin_principal_arn     = var.eks_admin_principal_arn
   enable_node_group       = false
 }
 
@@ -79,6 +81,8 @@ module "eks_use2" {
   subnet_ids              = module.vpc_use2.private_subnet_ids
   endpoint_private_access = true
   endpoint_public_access  = true
+  public_access_cidrs     = var.eks_public_access_cidrs
+  admin_principal_arn     = var.eks_admin_principal_arn
   enable_node_group       = false
 }
 
@@ -91,6 +95,8 @@ module "eks_usw2" {
   subnet_ids              = module.vpc_usw2.private_subnet_ids
   endpoint_private_access = true
   endpoint_public_access  = true
+  public_access_cidrs     = var.eks_public_access_cidrs
+  admin_principal_arn     = var.eks_admin_principal_arn
   enable_node_group       = false
 }
 
@@ -197,24 +203,27 @@ provider "helm" {
 }
 
 # ============================================================
-# Karpenter — 3 Spot regions
+# Karpenter — 3 Spot regions (disabled for dev — enable in prod)
 # ============================================================
 module "karpenter_use1" {
-  source       = "../../modules/karpenter"
-  providers    = { kubectl = kubectl.use1 }
-  cluster_name = module.eks_use1.cluster_name
+  source         = "../../modules/karpenter"
+  providers      = { kubectl = kubectl.use1 }
+  cluster_name   = module.eks_use1.cluster_name
+  node_role_name = module.eks_use1.node_role_name
 }
 
 module "karpenter_use2" {
-  source       = "../../modules/karpenter"
-  providers    = { kubectl = kubectl.use2 }
-  cluster_name = module.eks_use2.cluster_name
+  source         = "../../modules/karpenter"
+  providers      = { kubectl = kubectl.use2 }
+  cluster_name   = module.eks_use2.cluster_name
+  node_role_name = module.eks_use2.node_role_name
 }
 
 module "karpenter_usw2" {
-  source       = "../../modules/karpenter"
-  providers    = { kubectl = kubectl.usw2 }
-  cluster_name = module.eks_usw2.cluster_name
+  source         = "../../modules/karpenter"
+  providers      = { kubectl = kubectl.usw2 }
+  cluster_name   = module.eks_usw2.cluster_name
+  node_role_name = module.eks_usw2.node_role_name
 }
 
 # ============================================================
@@ -244,7 +253,7 @@ module "elasticache" {
   name                       = local.name
   vpc_id                     = module.vpc_seoul.vpc_id
   subnet_ids                 = module.vpc_seoul.private_subnet_ids
-  allowed_security_group_ids = [module.eks_seoul.cluster_security_group_id]
+  allowed_security_group_ids = [module.eks_seoul.eks_managed_security_group_id]
   node_type                  = var.redis_node_type
 }
 
@@ -274,6 +283,37 @@ module "alb" {
   cognito_client_id     = module.cognito.client_id
   cognito_domain        = module.cognito.user_pool_domain
   origin_verify_secret  = var.origin_verify_secret
+}
+
+# ALB → EKS node SG rules (target group uses IP target type)
+resource "aws_security_group_rule" "alb_to_eks_frontend" {
+  provider                 = aws.seoul
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  source_security_group_id = module.alb.security_group_id
+  security_group_id        = module.eks_seoul.eks_managed_security_group_id
+}
+
+resource "aws_security_group_rule" "alb_to_eks_api" {
+  provider                 = aws.seoul
+  type                     = "ingress"
+  from_port                = 8000
+  to_port                  = 8000
+  protocol                 = "tcp"
+  source_security_group_id = module.alb.security_group_id
+  security_group_id        = module.eks_seoul.eks_managed_security_group_id
+}
+
+resource "aws_security_group_rule" "alb_to_eks_grafana" {
+  provider                 = aws.seoul
+  type                     = "ingress"
+  from_port                = 3000
+  to_port                  = 3000
+  protocol                 = "tcp"
+  source_security_group_id = module.alb.security_group_id
+  security_group_id        = module.eks_seoul.eks_managed_security_group_id
 }
 
 # ============================================================
@@ -328,75 +368,74 @@ module "pod_identity_usw2" {
 }
 
 # ============================================================
-# FSx Lustre — 3 Spot regions
+# FSx Lustre — 3 Spot regions (disabled for dev — SCRATCH_2 needs import_path refactor)
 # ============================================================
-module "fsx_use1" {
-  source    = "../../modules/fsx"
-  providers = { aws = aws.us_east_1 }
-
-  name               = "${local.name}-use1"
-  subnet_id          = module.vpc_use1.private_subnet_ids[0]
-  security_group_ids = [module.eks_use1.cluster_security_group_id]
-  s3_import_path     = "s3://${module.s3.bucket_id}"
-}
-
-module "fsx_use2" {
-  source    = "../../modules/fsx"
-  providers = { aws = aws.us_east_2 }
-
-  name               = "${local.name}-use2"
-  subnet_id          = module.vpc_use2.private_subnet_ids[0]
-  security_group_ids = [module.eks_use2.cluster_security_group_id]
-  s3_import_path     = "s3://${module.s3.bucket_id}"
-}
-
-module "fsx_usw2" {
-  source    = "../../modules/fsx"
-  providers = { aws = aws.us_west_2 }
-
-  name               = "${local.name}-usw2"
-  subnet_id          = module.vpc_usw2.private_subnet_ids[0]
-  security_group_ids = [module.eks_usw2.cluster_security_group_id]
-  s3_import_path     = "s3://${module.s3.bucket_id}"
-}
+# module "fsx_use1" {
+#   source    = "../../modules/fsx"
+#   providers = { aws = aws.us_east_1 }
+#   name               = "${local.name}-use1"
+#   vpc_id             = module.vpc_use1.vpc_id
+#   subnet_id          = module.vpc_use1.private_subnet_ids[0]
+#   subnet_cidr        = var.vpc_cidrs["us-east-1"]
+#   security_group_ids = [module.eks_use1.cluster_security_group_id]
+#   s3_import_path     = "s3://${module.s3.bucket_id}"
+# }
+#
+# module "fsx_use2" {
+#   source    = "../../modules/fsx"
+#   providers = { aws = aws.us_east_2 }
+#   name               = "${local.name}-use2"
+#   vpc_id             = module.vpc_use2.vpc_id
+#   subnet_id          = module.vpc_use2.private_subnet_ids[0]
+#   subnet_cidr        = var.vpc_cidrs["us-east-2"]
+#   security_group_ids = [module.eks_use2.cluster_security_group_id]
+#   s3_import_path     = "s3://${module.s3.bucket_id}"
+# }
+#
+# module "fsx_usw2" {
+#   source    = "../../modules/fsx"
+#   providers = { aws = aws.us_west_2 }
+#   name               = "${local.name}-usw2"
+#   vpc_id             = module.vpc_usw2.vpc_id
+#   subnet_id          = module.vpc_usw2.private_subnet_ids[0]
+#   subnet_cidr        = var.vpc_cidrs["us-west-2"]
+#   security_group_ids = [module.eks_usw2.cluster_security_group_id]
+#   s3_import_path     = "s3://${module.s3.bucket_id}"
+# }
 
 # ============================================================
-# Monitoring — Seoul (full stack) + Spot regions (agent mode)
+# Monitoring — disabled for dev (enable in prod)
 # ============================================================
-module "monitoring_seoul" {
-  source    = "../../modules/monitoring"
-  providers = { helm = helm.seoul }
-
-  cluster_name  = module.eks_seoul.cluster_name
-  is_agent_mode = false
-}
-
-module "monitoring_use1" {
-  source    = "../../modules/monitoring"
-  providers = { helm = helm.use1 }
-
-  cluster_name     = module.eks_use1.cluster_name
-  is_agent_mode    = true
-  remote_write_url = ""
-}
-
-module "monitoring_use2" {
-  source    = "../../modules/monitoring"
-  providers = { helm = helm.use2 }
-
-  cluster_name     = module.eks_use2.cluster_name
-  is_agent_mode    = true
-  remote_write_url = ""
-}
-
-module "monitoring_usw2" {
-  source    = "../../modules/monitoring"
-  providers = { helm = helm.usw2 }
-
-  cluster_name     = module.eks_usw2.cluster_name
-  is_agent_mode    = true
-  remote_write_url = ""
-}
+# module "monitoring_seoul" {
+#   source    = "../../modules/monitoring"
+#   providers = { helm = helm.seoul }
+#   cluster_name  = module.eks_seoul.cluster_name
+#   is_agent_mode = false
+# }
+#
+# module "monitoring_use1" {
+#   source    = "../../modules/monitoring"
+#   providers = { helm = helm.use1 }
+#   cluster_name     = module.eks_use1.cluster_name
+#   is_agent_mode    = true
+#   remote_write_url = ""
+# }
+#
+# module "monitoring_use2" {
+#   source    = "../../modules/monitoring"
+#   providers = { helm = helm.use2 }
+#   cluster_name     = module.eks_use2.cluster_name
+#   is_agent_mode    = true
+#   remote_write_url = ""
+# }
+#
+# module "monitoring_usw2" {
+#   source    = "../../modules/monitoring"
+#   providers = { helm = helm.usw2 }
+#   cluster_name     = module.eks_usw2.cluster_name
+#   is_agent_mode    = true
+#   remote_write_url = ""
+# }
 
 # ============================================================
 # GitHub Actions OIDC (Seoul)

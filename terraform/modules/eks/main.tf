@@ -73,11 +73,14 @@ resource "aws_eks_cluster" "this" {
   role_arn = aws_iam_role.cluster.arn
   version  = var.cluster_version
 
+  bootstrap_self_managed_addons = false
+
   vpc_config {
     subnet_ids              = var.subnet_ids
     security_group_ids      = [aws_security_group.cluster.id]
     endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
+    public_access_cidrs     = var.endpoint_public_access ? var.public_access_cidrs : null
   }
 
   compute_config {
@@ -158,6 +161,26 @@ resource "aws_eks_addon" "pod_identity_agent" {
   addon_name   = "eks-pod-identity-agent"
 }
 
+resource "aws_eks_addon" "vpc_cni" {
+  count        = var.enable_node_group ? 1 : 0
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "vpc-cni"
+}
+
+resource "aws_eks_addon" "kube_proxy" {
+  count        = var.enable_node_group ? 1 : 0
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "kube-proxy"
+}
+
+resource "aws_eks_addon" "coredns" {
+  count        = var.enable_node_group ? 1 : 0
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "coredns"
+
+  depends_on = [aws_eks_node_group.control_plane]
+}
+
 resource "aws_eks_node_group" "control_plane" {
   count           = var.enable_node_group ? 1 : 0
   cluster_name    = aws_eks_cluster.this.name
@@ -180,9 +203,17 @@ resource "aws_eks_node_group" "control_plane" {
 
 data "aws_caller_identity" "current" {}
 
+data "aws_iam_session_context" "current" {
+  arn = data.aws_caller_identity.current.arn
+}
+
+locals {
+  admin_arn = var.admin_principal_arn != "" ? var.admin_principal_arn : data.aws_iam_session_context.current.issuer_arn
+}
+
 resource "aws_eks_access_entry" "admin" {
   cluster_name  = aws_eks_cluster.this.name
-  principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+  principal_arn = local.admin_arn
   type          = "STANDARD"
 }
 

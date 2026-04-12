@@ -14,7 +14,7 @@ class JobStatus(StrEnum):
 
 
 class JobRequest(BaseModel):
-    user_id: str
+    user_id: str = "anonymous"
     image: str = "nvidia/cuda:12.0-base"
     command: list[str] = ["/bin/sh", "-c", "nvidia-smi && sleep 60"]
     instance_type: str = "g6.xlarge"

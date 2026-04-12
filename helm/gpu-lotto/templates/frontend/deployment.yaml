@@ -22,8 +22,14 @@ spec:
       serviceAccountName: {{ .Values.frontend.serviceAccount.name }}
       containers:
         - name: frontend
-          image: "{{ .Values.global.image.registry }}/{{ .Values.frontend.image.repository }}:{{ .Values.global.image.tag }}"
+          image: "{{ .Values.global.image.registry }}/{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag | default .Values.global.image.tag }}"
           imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - envsubst '$$KUBE_DNS_IP' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'
+          env:
+            - name: KUBE_DNS_IP
+              value: {{ .Values.frontend.kubeDnsIp | default "172.20.0.10" | quote }}
           ports:
             - name: http
               containerPort: {{ .Values.frontend.port }}

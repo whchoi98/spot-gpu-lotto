@@ -1,0 +1,35 @@
+# 각 Spot 리전 EKS 클러스터에 적용할 FSx for Lustre PV/PVC
+# FSx 파일시스템 ID와 DNS는 setup-storage.sh 실행 후 치환 필요
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: fsx-lustre-pv
+spec:
+  capacity:
+    storage: 1200Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  csi:
+    driver: fsx.csi.aws.com
+    volumeHandle: "${FSX_FILESYSTEM_ID}"  # setup-storage.sh 출력값으로 치환
+    volumeAttributes:
+      dnsname: "${FSX_DNS_NAME}"          # 예: fs-xxx.fsx.us-east-2.amazonaws.com
+      mountname: "${FSX_MOUNT_NAME}"      # 예: abcdef
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fsx-lustre-pvc
+  namespace: gpu-jobs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1200Gi
+  volumeName: fsx-lustre-pv

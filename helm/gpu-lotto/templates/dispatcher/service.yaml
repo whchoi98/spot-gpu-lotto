@@ -1,0 +1,20 @@
+# helm/gpu-lotto/templates/dispatcher/service.yaml
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "gpu-lotto.fullname" . }}-dispatcher
+  namespace: {{ include "gpu-lotto.namespace" . }}
+  labels:
+    {{- include "gpu-lotto.labels" . | nindent 4 }}
+    app.kubernetes.io/name: dispatcher
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: dispatcher
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+{{- end }}

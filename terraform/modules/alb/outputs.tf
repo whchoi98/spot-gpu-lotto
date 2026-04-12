@@ -22,3 +22,7 @@ output "api_target_group_arn" {
 output "frontend_target_group_arn" {
   value = aws_lb_target_group.frontend.arn
 }
+
+output "grafana_target_group_arn" {
+  value = aws_lb_target_group.grafana.arn
+}

@@ -1,7 +1,0 @@
-# helm/gpu-lotto/templates/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{ include "gpu-lotto.namespace" . }}
-  labels:
-    {{- include "gpu-lotto.labels" . | nindent 4 }}

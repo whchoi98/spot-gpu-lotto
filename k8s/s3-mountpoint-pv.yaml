@@ -1,0 +1,71 @@
+# S3 직접 마운트 방식 (FSx 없이 간단하게 사용할 때)
+# Mountpoint for S3 CSI Driver 사용
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: s3-models-pv
+spec:
+  capacity:
+    storage: 500Gi  # S3는 무제한이지만 PV 스펙상 필요
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region ${S3_REGION}
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: s3-csi-models
+    volumeAttributes:
+      bucketName: "${BUCKET_NAME}"
+      prefix: "models/"  # S3 내 특정 prefix만 마운트
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-models-pvc
+  namespace: gpu-jobs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 500Gi
+  volumeName: s3-models-pv
+---
+# 결과 업로드용 PV (별도 prefix)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: s3-results-pv
+spec:
+  capacity:
+    storage: 500Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  mountOptions:
+    - allow-delete
+    - region ${S3_REGION}
+  csi:
+    driver: s3.csi.aws.com
+    volumeHandle: s3-csi-results
+    volumeAttributes:
+      bucketName: "${BUCKET_NAME}"
+      prefix: "results/"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: s3-results-pvc
+  namespace: gpu-jobs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 500Gi
+  volumeName: s3-results-pv
