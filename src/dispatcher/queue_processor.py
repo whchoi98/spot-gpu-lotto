@@ -6,7 +6,7 @@ import uuid
 import redis.asyncio as aioredis
 
 from common.config import get_settings
-from common.k8s_client import get_k8s_client
+from common.k8s_client import get_k8s_client, invalidate_client
 from common.logging import get_logger
 from common.metrics import JOBS_DISPATCHED, JOBS_FAILED, JOBS_RETRIED, QUEUE_DEPTH
 from common.models import JobStatus
@@ -46,7 +46,12 @@ async def process_one_job(r: aioredis.Redis, job_json: str) -> dict:
     if settings.k8s_mode == "live":
         k8s = get_k8s_client(region)
         pod = build_gpu_pod(job_id, job)
-        k8s.create_namespaced_pod(namespace="gpu-jobs", body=pod)
+        try:
+            k8s.create_namespaced_pod(namespace="gpu-jobs", body=pod)
+        except Exception as e:
+            if "Unauthorized" in str(e) or "401" in str(e):
+                invalidate_client(region)
+            raise
     else:
         pod = build_gpu_pod(job_id, job)
         log.info("dry_run_pod_created", job_id=job_id, region=region)

@@ -10,6 +10,7 @@ import {
   BookOpen,
   BarChart3,
   Globe,
+  Sparkles,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +27,7 @@ export function Sidebar() {
     { to: "/jobs/new", label: t("nav_new_job"), icon: Plus },
     { to: "/prices", label: t("nav_prices"), icon: DollarSign },
     { to: "/templates", label: t("nav_templates"), icon: FileText },
+    { to: "/agent", label: t("nav_agent"), icon: Sparkles },
     { to: "/guide", label: t("nav_guide"), icon: BookOpen },
     { to: "/settings", label: t("nav_settings"), icon: Settings },
   ];

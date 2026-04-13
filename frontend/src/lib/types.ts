@@ -64,3 +64,27 @@ export interface UserInfo {
   user_id: string;
   role: "admin" | "user";
 }
+
+// Agent chat types
+export interface AgentChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  model?: string;
+  actions?: ProposedAction[];
+}
+
+export interface ProposedAction {
+  action: string;
+  instance_type?: string;
+  image?: string;
+  command?: string;
+  gpu_count?: number;
+  region?: string;
+  reason?: string;
+}
+
+export interface AgentChatResponse {
+  content: string;
+  model: string;
+  actions: ProposedAction[];
+}

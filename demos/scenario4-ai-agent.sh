@@ -124,9 +124,8 @@ echo
 echo -e "  ${D}+---------------------------------------------------+${RESET}"
 echo -e "  ${D}|${RESET}  Runtime  ${D}|${RESET} ${M}Amazon Bedrock AgentCore${RESET}"
 echo -e "  ${D}|${RESET}  Agent   ${D}|${RESET} ${W}Strands Agent${RESET} (Claude Sonnet 4.6)"
-echo -e "  ${D}|${RESET}  Gateway ${D}|${RESET} ${C}MCP Protocol${RESET} (FastAPI -> Agent Tools)"
-echo -e "  ${D}|${RESET}  Tools   ${D}|${RESET} check_spot_prices, get_failure_history,"
-echo -e "  ${D}|${RESET}          ${D}|${RESET} submit_gpu_job, get_job_status, list_active_jobs"
+echo -e "  ${D}|${RESET}  Jobs    ${D}|${RESET} ${C}httpx${RESET} -> API Server (6 tools)"
+echo -e "  ${D}|${RESET}  Infra   ${D}|${RESET} ${C}boto3/k8s${RESET} -> AWS APIs (7 tools)"
 echo -e "  ${D}|${RESET}  Mode    ${D}|${RESET} ${G}AI reasoning${RESET} vs ${Y}Rule-based dispatch${RESET}"
 echo -e "  ${D}+---------------------------------------------------+${RESET}"
 echo
@@ -221,12 +220,12 @@ typewrite "$PROMPT_1" 0.02
 echo
 echo
 
-echo -e "  ${D}Agent calling tool: ${C}check_spot_prices(instance_type='g6.xlarge')${RESET}"
+echo -e "  ${D}Agent calling tool: ${C}get_prices(instance_type='g6.xlarge')${RESET}"
 echo
 
-# Call real API for price data
+# Call real API for price data (same path as MCP Gateway -> API Server)
 curl -s "$API/prices?instance_type=g6.xlarge" > /tmp/demo4_prices.json &
-spinner $! "Agent querying Redis via check_spot_prices tool"
+spinner $! "Agent querying prices via httpx -> API Server"
 
 PRICES_RAW=$(cat /tmp/demo4_prices.json)
 if echo "$PRICES_RAW" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
@@ -271,12 +270,12 @@ typewrite "$PROMPT_2" 0.02
 echo
 echo
 
-echo -e "  ${D}Agent calling tool: ${C}get_failure_history()${RESET}"
+echo -e "  ${D}Agent calling tool: ${C}get_stats()${RESET}"
 echo
 
-# Call real API for job stats (active jobs as proxy)
+# Call real API for job stats via MCP Gateway -> API Server
 curl -s "$API/admin/stats" > /tmp/demo4_stats.json 2>/dev/null &
-spinner $! "Agent querying failure patterns from Redis"
+spinner $! "Agent querying stats via httpx -> API Server"
 
 echo
 echo -e "  ${W}Agent Response:${RESET}"
@@ -333,10 +332,10 @@ echo
 
 # Animated reasoning steps
 STEPS=(
-  "${C}1.${RESET} check_spot_prices(instance_type='g6.xlarge')   ${D}-- 가격 수집${RESET}"
-  "${C}2.${RESET} get_failure_history()                          ${D}-- 장애 이력 조회${RESET}"
-  "${C}3.${RESET} LLM analysis: price + stability + capacity     ${D}-- 종합 추론${RESET}"
-  "${C}4.${RESET} submit_gpu_job(instance_type='g6.xlarge', ...) ${D}-- 작업 제출${RESET}"
+  "${C}1.${RESET} get_prices(instance_type='g6.xlarge')          ${D}-- httpx -> API Server${RESET}"
+  "${C}2.${RESET} get_stats()                                    ${D}-- httpx -> API Server${RESET}"
+  "${C}3.${RESET} LLM analysis: price + stability + capacity     ${D}-- Claude Sonnet 4.6${RESET}"
+  "${C}4.${RESET} propose_job -> user approval -> submit_job     ${D}-- hybrid approval${RESET}"
 )
 
 for step in "${STEPS[@]}"; do
@@ -389,7 +388,7 @@ echo
 # Submit job via API
 JOB_PAYLOAD='{
   "image": "nvidia/cuda:12.2.0-runtime-ubuntu22.04",
-  "command": ["python3", "-c", "import time; print(\"Starting LoRA fine-tuning...\"); time.sleep(120); print(\"Training complete!\")"],
+  "command": ["/bin/sh", "-c", "echo Starting LoRA fine-tuning... && nvidia-smi && sleep 30 && echo Training complete!"],
   "instance_type": "g6.xlarge",
   "gpu_type": "L4",
   "gpu_count": 1,
@@ -400,7 +399,7 @@ JOB_PAYLOAD='{
 curl -s -X POST "$API/jobs" \
   -H "Content-Type: application/json" \
   -d "$JOB_PAYLOAD" > /tmp/demo4_job.json &
-spinner $! "Agent submitting job via submit_gpu_job tool"
+spinner $! "Agent submitting job via httpx -> API Server (user approved)"
 
 JOB_ID=$(cat /tmp/demo4_job.json | python3 -c "
 import sys, json
@@ -421,59 +420,64 @@ pause_key
 # ================================================================
 clear
 echo
-echo -e "  ${BG_M}${W}${BOLD}  STEP 5 / 6  ${RESET}  ${W}${BOLD}MCP Gateway -- FastAPI as Agent Tools${RESET}"
+echo -e "  ${BG_M}${W}${BOLD}  STEP 5 / 6  ${RESET}  ${W}${BOLD}Agent Tool Architecture -- Job + Infra${RESET}"
 hr "=" "$M"
 echo
 
-echo -e "  ${D}AgentCore Gateway transforms REST APIs into MCP protocol tools.${RESET}"
-echo -e "  ${D}Any MCP-compatible client (Claude Desktop, other agents) can${RESET}"
-echo -e "  ${D}discover and call our FastAPI endpoints as native tools.${RESET}"
+echo -e "  ${D}Strands Agent has two tool categories in a single agent:${RESET}"
+echo -e "  ${D}Job tools call API Server via httpx. Infra tools call AWS APIs directly.${RESET}"
 echo
 
-echo -e "  ${C}  +-------------------+        +---------------------+${RESET}"
-echo -e "  ${C}  |${RESET}  ${W}MCP Client${RESET}       ${C}|${RESET}  MCP   ${C}|${RESET}  ${W}AgentCore Gateway${RESET} ${C}|${RESET}"
-echo -e "  ${C}  |${RESET}  Claude Desktop   ${C}|${RESET} -----> ${C}|${RESET}  MCP -> OpenAPI    ${C}|${RESET}"
-echo -e "  ${C}  |${RESET}  External Agent   ${C}|${RESET}        ${C}|${RESET}  Protocol Bridge   ${C}|${RESET}"
-echo -e "  ${C}  +-------------------+        +----------+----------+${RESET}"
-echo -e "  ${D}                                          |${RESET}"
-echo -e "  ${D}                                          V${RESET}"
-echo -e "  ${G}                               +---------------------+${RESET}"
-echo -e "  ${G}                               |${RESET}  ${W}FastAPI (GPU Lotto)${RESET}${G}|${RESET}"
-echo -e "  ${G}                               |${RESET}  /api/prices        ${G}|${RESET}"
-echo -e "  ${G}                               |${RESET}  /api/jobs          ${G}|${RESET}"
-echo -e "  ${G}                               |${RESET}  /api/admin/stats   ${G}|${RESET}"
-echo -e "  ${G}                               +---------------------+${RESET}"
+echo -e "  ${C}  +---------------------------------------------------+${RESET}"
+echo -e "  ${C}  |${RESET}  ${W}Strands Agent${RESET} (Claude Sonnet 4.6)               ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}                                                   ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}  ${G}Job Tools (httpx -> API Server)${RESET}                ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}    get_prices, submit_job, get_job_status,       ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}    cancel_job, list_jobs, get_stats              ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}                                                   ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}  ${M}Infra Tools (boto3/k8s -> AWS APIs)${RESET}            ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}    list_clusters, list_nodes, list_pods,         ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}    describe_nodepool, get_helm_status,           ${C}|${RESET}"
+echo -e "  ${C}  |${RESET}    describe_redis, get_cost_summary              ${C}|${RESET}"
+echo -e "  ${C}  +---------------------------------------------------+${RESET}"
 echo
 
-echo -e "  ${W}${BOLD}  Gateway Details:${RESET}"
+echo -e "  ${W}${BOLD}  Hybrid Approval Model:${RESET}"
 echo
-echo -e "  ${D}  MCP URL   :${RESET} ${C}${UNDERLINE}https://gpu-spot-lotto-gateway-rjctk0amlu.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp${RESET}"
-echo -e "  ${D}  Auth      :${RESET} Cognito JWT (auto-configured)"
-echo -e "  ${D}  Protocol  :${RESET} MCP (Model Context Protocol)"
-echo -e "  ${D}  Search    :${RESET} Semantic (natural language tool discovery)"
+echo -e "  ${D}  User request -> Agent proposes action -> User approves -> Execute${RESET}"
+echo
+echo -e "  ${G}  Auto-approved:${RESET}  Small instances (g6.xlarge, g5.xlarge)"
+echo -e "  ${Y}  Needs approval:${RESET} Large instances (g5.12xlarge, g5.48xlarge)"
+echo -e "  ${R}  Quota exceeded:${RESET} Admin approval required"
 echo
 
-echo -e "  ${W}${BOLD}  Registered MCP Tools (from OpenAPI):${RESET}"
+echo -e "  ${W}${BOLD}  All 13 Agent Tools:${RESET}"
 echo
 
 TOOLS=(
-  "get_prices_api_prices_get        -- GET /api/prices        -- Spot 가격 조회"
-  "submit_job_api_jobs_post         -- POST /api/jobs         -- GPU 작업 제출"
-  "get_job_api_jobs__job_id__get    -- GET /api/jobs/{id}     -- 작업 상태 조회"
-  "cancel_job_api_jobs__job_id__del -- DELETE /api/jobs/{id}  -- 작업 취소"
-  "list_all_jobs_api_admin_jobs_get -- GET /api/admin/jobs    -- 전체 작업 목록"
-  "get_stats_api_admin_stats_get    -- GET /api/admin/stats   -- 시스템 통계"
+  "${G}Job${RESET}   get_prices         -- httpx -> GET /api/prices        -- Spot 가격 조회"
+  "${G}Job${RESET}   submit_job         -- httpx -> POST /api/jobs         -- GPU 작업 제출"
+  "${G}Job${RESET}   get_job_status     -- httpx -> GET /api/jobs/{id}     -- 작업 상태 조회"
+  "${G}Job${RESET}   cancel_job         -- httpx -> DELETE /api/jobs/{id}  -- 작업 취소"
+  "${G}Job${RESET}   list_jobs          -- httpx -> GET /api/admin/jobs    -- 전체 작업 목록"
+  "${G}Job${RESET}   get_stats          -- httpx -> GET /api/admin/stats   -- 시스템 통계"
+  "${M}Infra${RESET} list_clusters      -- boto3 eks                       -- 4개 EKS 상태"
+  "${M}Infra${RESET} list_nodes         -- kubernetes API                  -- 노드 현황"
+  "${M}Infra${RESET} list_pods          -- kubernetes API                  -- Pod 현황"
+  "${M}Infra${RESET} describe_nodepool  -- kubernetes CRD                  -- Karpenter 설정"
+  "${M}Infra${RESET} get_helm_status    -- helm CLI                        -- Helm 릴리스"
+  "${M}Infra${RESET} describe_redis     -- boto3 elasticache               -- Redis 상태"
+  "${M}Infra${RESET} get_cost_summary   -- boto3 cost explorer             -- AWS 비용"
 )
 
 for tool in "${TOOLS[@]}"; do
-  echo -e "     ${G}*${RESET} ${tool}"
-  sleep 0.3
+  echo -e "     $tool"
+  sleep 0.2
 done
 
 echo
-echo -e "  ${D}  Any MCP client can now call these tools via standard protocol.${RESET}"
-echo -e "  ${D}  Example: Claude Desktop connects to the MCP URL and discovers${RESET}"
-echo -e "  ${D}  all 6 tools automatically via semantic search.${RESET}"
+echo -e "  ${D}  Frontend AI Agent page provides natural language chat with${RESET}"
+echo -e "  ${D}  markdown rendering and action approval cards.${RESET}"
 
 pause_key
 
@@ -493,11 +497,11 @@ echo -e "  ${D}  |${RESET} ${W}Criteria${RESET}            ${D}|${RESET} ${Y}Rul
 echo -e "  ${D}  +---------------------+---------------------------+---------------------------+${RESET}"
 
 sleep 0.3
-echo -e "  ${D}  |${RESET} Price check         ${D}|${RESET} ${G}Yes${RESET} (sorted set)          ${D}|${RESET} ${G}Yes${RESET} (check_spot_prices)   ${D}|${RESET}"
+echo -e "  ${D}  |${RESET} Price check         ${D}|${RESET} ${G}Yes${RESET} (sorted set)          ${D}|${RESET} ${G}Yes${RESET} (MCP get_prices)      ${D}|${RESET}"
 sleep 0.3
 echo -e "  ${D}  |${RESET} Capacity check      ${D}|${RESET} ${G}Yes${RESET} (simple > 0)          ${D}|${RESET} ${G}Yes${RESET} (with reasoning)      ${D}|${RESET}"
 sleep 0.3
-echo -e "  ${D}  |${RESET} Failure history     ${D}|${RESET} ${R}No${RESET}                        ${D}|${RESET} ${G}Yes${RESET} (get_failure_history)  ${D}|${RESET}"
+echo -e "  ${D}  |${RESET} System stats        ${D}|${RESET} ${R}No${RESET}                        ${D}|${RESET} ${G}Yes${RESET} (get_stats)           ${D}|${RESET}"
 sleep 0.3
 echo -e "  ${D}  |${RESET} VRAM mapping        ${D}|${RESET} ${R}No${RESET}  (user must specify)   ${D}|${RESET} ${G}Yes${RESET} (24GB -> g6.xlarge)   ${D}|${RESET}"
 sleep 0.3
@@ -505,7 +509,7 @@ echo -e "  ${D}  |${RESET} Natural language    ${D}|${RESET} ${R}No${RESET}  (JS
 sleep 0.3
 echo -e "  ${D}  |${RESET} Reasoning trace     ${D}|${RESET} ${R}No${RESET}  (opaque)              ${D}|${RESET} ${G}Yes${RESET} (explains decisions)  ${D}|${RESET}"
 sleep 0.3
-echo -e "  ${D}  |${RESET} MCP integration     ${D}|${RESET} ${R}No${RESET}                        ${D}|${RESET} ${G}Yes${RESET} (Gateway)             ${D}|${RESET}"
+echo -e "  ${D}  |${RESET} Infra management    ${D}|${RESET} ${R}No${RESET}                        ${D}|${RESET} ${G}Yes${RESET} (7 boto3/k8s tools)   ${D}|${RESET}"
 sleep 0.3
 echo -e "  ${D}  |${RESET} Latency             ${D}|${RESET} ${G}~100ms${RESET}                    ${D}|${RESET} ${Y}~5-15s${RESET} (LLM reasoning)    ${D}|${RESET}"
 echo -e "  ${D}  +---------------------+---------------------------+---------------------------+${RESET}"
@@ -520,23 +524,22 @@ echo -e "  ${M}  +------------------------------------------------------+${RESET
 echo -e "  ${M}  |${RESET}  ${W}${BOLD}AgentCore Runtime${RESET}    (Serverless, auto-scale)        ${M}|${RESET}"
 echo -e "  ${M}  |${RESET}    |                                                  ${M}|${RESET}"
 echo -e "  ${M}  |${RESET}    +-- ${C}Strands Agent${RESET} (Claude Sonnet 4.6)            ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}    |     +-- check_spot_prices (Redis ZRANGE)          ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}    |     +-- get_failure_history (Redis SMEMBERS)       ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}    |     +-- submit_gpu_job (Redis LPUSH)              ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}    |     +-- get_job_status (Redis HGETALL)            ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}    |     +-- list_active_jobs (Redis SMEMBERS)         ${M}|${RESET}"
 echo -e "  ${M}  |${RESET}    |                                                  ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}    +-- ${G}AgentCore Gateway${RESET} (MCP Protocol)            ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}          +-- FastAPI OpenAPI -> 6 MCP tools            ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}          +-- Cognito JWT auth                          ${M}|${RESET}"
-echo -e "  ${M}  |${RESET}          +-- Semantic tool discovery                   ${M}|${RESET}"
+echo -e "  ${M}  |${RESET}    +-- ${G}Job Tools${RESET} (httpx -> API Server -> Redis)    ${M}|${RESET}"
+echo -e "  ${M}  |${RESET}    |     +-- get_prices, submit_job, get_job_status   ${M}|${RESET}"
+echo -e "  ${M}  |${RESET}    |     +-- cancel_job, list_jobs, get_stats         ${M}|${RESET}"
+echo -e "  ${M}  |${RESET}    |                                                  ${M}|${RESET}"
+echo -e "  ${M}  |${RESET}    +-- ${M}Infra Tools${RESET} (boto3/k8s -> AWS APIs)         ${M}|${RESET}"
+echo -e "  ${M}  |${RESET}          +-- list_clusters, list_nodes, list_pods     ${M}|${RESET}"
+echo -e "  ${M}  |${RESET}          +-- describe_nodepool, get_helm_status       ${M}|${RESET}"
+echo -e "  ${M}  |${RESET}          +-- describe_redis, get_cost_summary         ${M}|${RESET}"
 echo -e "  ${M}  +------------------------------------------------------+${RESET}"
 
 echo
 echo -e "  ${D}  Access Points:${RESET}"
 echo -e "  ${D}  Dashboard : ${UNDERLINE}${C}${BASE_URL}${RESET}"
 echo -e "  ${D}  Agent     : agentcore invoke '{\"prompt\": \"...\"}'"
-echo -e "  ${D}  MCP       : ${UNDERLINE}${C}https://gpu-spot-lotto-gateway-rjctk0amlu.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp${RESET}"
+echo -e "  ${D}  Chat API  : POST /api/agent/chat (Bedrock Converse + Redis context)"
 echo
 
 hr "=" "$M"
@@ -554,7 +557,7 @@ echo -e "${RESET}"
 echo -e "  ${G}${BOLD}Scenario 4 Complete!${RESET}"
 echo -e "  ${D}AI Agent가 가격+장애+용량을 종합 분석하여 us-east-2를 선택했습니다.${RESET}"
 echo -e "  ${D}Rule-based 대비 장애 회피율이 높고, 자연어 인터페이스를 제공합니다.${RESET}"
-echo -e "  ${D}MCP Gateway로 외부 MCP 클라이언트에서도 GPU Lotto 도구를 사용할 수 있습니다.${RESET}"
+echo -e "  ${D}하이브리드 승인 모델로 비용 통제와 사용 편의성을 동시에 제공합니다.${RESET}"
 echo
 hr "=" "$M"
 echo

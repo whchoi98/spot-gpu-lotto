@@ -1,6 +1,6 @@
 data "aws_iam_policy_document" "cluster_assume" {
   statement {
-    actions = ["sts:AssumeRole"]
+    actions = ["sts:AssumeRole", "sts:TagSession"]
     principals {
       type        = "Service"
       identifiers = ["eks.amazonaws.com"]
@@ -138,17 +138,12 @@ resource "aws_iam_role" "node" {
 
 resource "aws_iam_role_policy_attachment" "node_worker" {
   role       = aws_iam_role.node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "node_cni" {
-  role       = aws_iam_role.node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodeMinimalPolicy"
 }
 
 resource "aws_iam_role_policy_attachment" "node_ecr" {
   role       = aws_iam_role.node.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
 }
 
 resource "aws_iam_role_policy_attachment" "node_ssm" {

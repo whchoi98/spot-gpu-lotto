@@ -1,6 +1,7 @@
 bedrock-agentcore
 strands-agents
 strands-agents-tools
+boto3
 redis
 pydantic
 pydantic-settings

@@ -20,7 +20,7 @@ and testcontainers for integration tests.
 - `test_reaper.py` -- Job reaper logic
 - `test_region_selector.py` -- Cheapest region selection
 - `test_agent_config.py` -- Agent config (dispatch_mode, agent_model)
-- `test_agent_tools.py` -- Agent tool _impl functions (fakeredis)
+- `test_agent_config.py` -- Agent config (dispatch_mode, agent_model, gateway_mcp_url)
 
 ## Integration Tests
 - `test_api_admin.py` -- Admin API endpoints

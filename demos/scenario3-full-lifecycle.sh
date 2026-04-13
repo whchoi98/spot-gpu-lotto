@@ -348,11 +348,11 @@ echo
 
 JOB_PAYLOAD='{
   "image": "nvidia/cuda:12.2.0-runtime-ubuntu22.04",
-  "command": ["python3", "-c", "import time; print(\"Loading model from /data/models...\"); time.sleep(5); print(\"Fine-tuning SDXL LoRA...\"); [print(f\"Epoch {e}/50\") or time.sleep(2) for e in range(50)]; print(\"Saving results to /data/results...\"); print(\"Done!\")"],
+  "command": ["/bin/sh", "-c", "echo Loading model from /data/models... && nvidia-smi && sleep 5 && echo Fine-tuning SDXL LoRA... && epoch=0; while [ $epoch -lt 10 ]; do echo Epoch $epoch/10; sleep 2; epoch=$((epoch+1)); done; echo Saving results to /data/results... && echo Done!"],
   "instance_type": "'"$CHEAPEST_TYPE"'",
   "gpu_type": "L4",
   "gpu_count": 1,
-  "storage_mode": "fsx",
+  "storage_mode": "s3",
   "checkpoint_enabled": true
 }'
 

@@ -32,11 +32,13 @@
   │  Frontend ◀───────┘       S3 Hub Bucket                          │
   │  (React SPA)          (models/datasets/checkpoints/results)      │
   │                                                                  │
-  │  AgentCore Runtime (us-east-1, serverless)                       │
-  │    └── Strands AI Agent ──▶ tools ──▶ Redis                      │
+  │  AgentCore Runtime (ap-northeast-2, serverless)                  │
+  │    └── Strands AI Agent                                          │
+  │          ├── Job Tools (httpx) ──▶ API Server ──▶ Redis          │
+  │          └── Infra Tools (boto3/k8s) ──▶ AWS APIs                │
   │                                                                  │
-  │  AgentCore Gateway (MCP Protocol)                                │
-  │    └── OpenAPI ──▶ MCP tools ──▶ API Server                      │
+  │  AgentCore Gateway (MCP Protocol, infra management)              │
+  │    └── OpenAPI ──▶ MCP tools for external clients                │
   └─────────────────────┬────────────────────────────────────────────┘
                         │
          ┌──────────────┼──────────────┐
@@ -60,18 +62,18 @@
 
 | Component | Source | Role |
 |-----------|--------|------|
-| API Server | `src/api_server/` | FastAPI -- 18 endpoints: jobs, prices, admin, templates, upload, health, metrics |
+| API Server | `src/api_server/` | FastAPI -- 19 endpoints: jobs, prices, admin, templates, upload, agent chat, health, metrics |
 | Dispatcher | `src/dispatcher/` | BRPOP queue consumer, cheapest-region selector, K8s Pod creator, job reaper |
 | Price Watcher | `src/price_watcher/` | EC2 Spot price collector (60s polling) -> Redis Sorted Set |
-| AI Agent | `src/agent/` | Strands SDK agent on AgentCore Runtime -- natural-language job dispatch |
+| AI Agent | `src/agent/` | Strands SDK agent on AgentCore Runtime -- natural-language job + infra management |
 | Common | `src/common/` | Shared config, models, Redis/K8s clients, metrics, logging |
 
 ### 2.2 Frontend
 
 | Component | Source | Role |
 |-----------|--------|------|
-| React SPA | `frontend/` | Dashboard, job management, price monitoring, admin panel, guide |
-| Pages | `frontend/src/pages/` | Dashboard, Jobs, JobNew, JobDetail, Prices, Templates, Guide, Settings, Admin |
+| React SPA | `frontend/` | Dashboard, job management, price monitoring, AI agent chat, admin panel, guide |
+| Pages | `frontend/src/pages/` | Dashboard, Jobs, JobNew, JobDetail, Prices, Templates, Agent, Guide, Settings, Admin |
 | Hooks | `frontend/src/hooks/` | TanStack Query hooks: useJobs, usePrices, useAdmin, useJobStream, useTheme |
 | i18n | `frontend/src/lib/i18n.ts` | Bilingual (Korean/English) translations |
 
@@ -112,30 +114,31 @@ Reaper (10s loop) ──▶ check Pod status ──┘
 
 ### 3.2 AI Agent Dispatch (dispatch_mode: agent)
 
-```
-User (natural language) ──▶ AgentCore Runtime
-    │
-    └── Strands Agent (Claude Sonnet)
-         ├── check_spot_prices()     -> Redis sorted set
-         ├── get_failure_history()   -> recent preemptions
-         ├── submit_gpu_job()        -> Redis queue
-         ├── get_job_status()        -> Redis hash
-         └── list_active_jobs()      -> Redis set
-```
-
-### 3.3 MCP Gateway (External Agent Access)
+Two tool categories, single agent:
 
 ```
-External Agent / MCP Client
+User (natural language) ──▶ AgentCore Runtime (Strands Agent)
     │
-    └── AgentCore Gateway (MCP ↔ REST)
-         ├── get_api_prices          -> GET /api/prices
-         ├── post_api_jobs           -> POST /api/jobs
-         ├── get_api_jobs_by_job_id  -> GET /api/jobs/{id}
-         ├── delete_api_jobs_by_job_id -> DELETE /api/jobs/{id}
-         ├── get_api_admin_jobs      -> GET /api/admin/jobs
-         └── get_api_admin_stats     -> GET /api/admin/stats
+    ├── Job Tools (httpx → API Server → Redis)
+    │    ├── get_prices          -> GET /api/prices
+    │    ├── submit_job          -> POST /api/jobs
+    │    ├── get_job_status      -> GET /api/jobs/{id}
+    │    ├── cancel_job          -> DELETE /api/jobs/{id}
+    │    ├── list_jobs           -> GET /api/admin/jobs
+    │    └── get_stats           -> GET /api/admin/stats
+    │
+    └── Infra Tools (boto3/kubernetes → AWS APIs)
+         ├── list_clusters       -> boto3 eks (all 4 regions)
+         ├── list_nodes          -> kubernetes API (node details)
+         ├── list_pods           -> kubernetes API (pod status)
+         ├── describe_nodepool   -> kubernetes CRD (Karpenter)
+         ├── get_helm_status     -> helm CLI (release status)
+         ├── describe_redis      -> boto3 elasticache
+         └── get_cost_summary    -> boto3 cost explorer
 ```
+
+Job tools use httpx to call API Server endpoints — no duplicate Redis logic.
+Infra tools use boto3/kubernetes for direct AWS API access with AgentCore execution role.
 
 ---
 
@@ -191,7 +194,7 @@ Selected per job via `storage_mode` parameter at submission time.
 | Setting | Value |
 |---------|-------|
 | Mode | EKS Auto Mode (Karpenter built-in) |
-| K8s Version | 1.31 |
+| K8s Version | 1.35 |
 | Node AMI | Bottlerocket Accelerated (GPU drivers pre-installed) |
 | Namespace | `gpu-jobs` (GPU workloads) |
 
@@ -272,29 +275,42 @@ State: S3 backend with DynamoDB locking.
 ### 9.1 Strands Agent
 
 ```
-AgentCore Runtime (us-east-1, serverless, Python 3.11, arm64)
+AgentCore Runtime (ap-northeast-2, serverless, Python 3.11, arm64)
     │
     └── Strands Agent
          ├── Model: global.anthropic.claude-sonnet-4-6
-         ├── System Prompt: GPU instance mapping, decision guidelines
-         └── Tools (5):
-              ├── check_spot_prices(instance_type, region)
-              ├── submit_gpu_job(instance_type, image, command, ...)
-              ├── get_job_status(job_id)
-              ├── list_active_jobs()
-              └── get_failure_history(region)
+         ├── System Prompt: Job + Infra guidelines, VRAM mapping
+         │
+         ├── Job Tools (httpx → API Server)
+         │    ├── get_prices(instance_type, region)
+         │    ├── submit_job(instance_type, image, command, ...)
+         │    ├── get_job_status(job_id)
+         │    ├── cancel_job(job_id)
+         │    ├── list_jobs()
+         │    └── get_stats()
+         │
+         └── Infra Tools (boto3/kubernetes → AWS APIs)
+              ├── list_clusters()
+              ├── list_nodes(region)
+              ├── list_pods(region, namespace)
+              ├── describe_nodepool(region)
+              ├── get_helm_status()
+              ├── describe_redis()
+              └── get_cost_summary(days)
 ```
 
-Each tool: sync `@tool` wrapper calls async `_impl(redis, ...)` function.
-`_impl` functions are independently testable with fakeredis.
+Two tool categories, single agent:
+- Job tools call API Server via httpx (single data path, no duplicate Redis logic)
+- Infra tools access AWS APIs directly via boto3/kubernetes with AgentCore execution role
 
-### 9.2 AgentCore Gateway (MCP Protocol)
+### 9.2 AgentCore Gateway (MCP Protocol — Infrastructure Management)
 
-OpenAPI-to-MCP bridge. External agents discover GPU Spot Lotto as MCP tools:
+MCP Protocol Bridge for external MCP clients to manage infrastructure:
 
-- Filtered OpenAPI spec: `openapi-gateway.json` (6 agent-relevant endpoints)
-- Auth: Cognito JWT auto-provisioned by Gateway
-- Target: CloudFront -> ALB -> FastAPI
+- Filtered OpenAPI spec: `openapi-gateway.json`
+- External MCP clients (Claude Desktop, etc.) connect via Gateway
+- Target: Gateway → CloudFront → ALB → FastAPI
+- Purpose: EKS cluster management, AWS infrastructure monitoring via MCP protocol
 
 ### 9.3 Deployment
 
@@ -376,6 +392,11 @@ Dependencies: `requirements.txt` (project root -- AgentCore CLI auto-detects)
 | POST | `/api/templates` | Create template |
 | DELETE | `/api/templates/{name}` | Delete template |
 
+### Agent (prefix: /api/agent)
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/agent/chat` | AI agent chat (Bedrock Converse + Redis context, hybrid approval) |
+
 ### Admin (prefix: /api/admin)
 | Method | Path | Description |
 |--------|------|-------------|
@@ -402,7 +423,7 @@ Dependencies: `requirements.txt` (project root -- AgentCore CLI auto-detects)
 | `scenario1-cost-optimized.sh` | 5 | Price scan, job submit, auto-dispatch, cost analysis, monitoring |
 | `scenario2-spot-recovery.sh` | 6 | Checkpoint, training, spot interruption, recovery, resume, cost |
 | `scenario3-full-lifecycle.sh` | 7 | Architecture, S3 upload, price scan, FSx import, training, export, summary |
-| `scenario4-ai-agent.sh` | 6 | Architecture comparison, agent price query, failure analysis, smart dispatch, MCP Gateway, summary |
+| `scenario4-ai-agent.sh` | 6 | Architecture comparison, agent price query, failure analysis, smart dispatch (hybrid approval), tool architecture, summary |
 
 All scripts: ASCII-only (no Unicode), real API calls, animated terminal UI, `GPU_LOTTO_URL` env var override.
 

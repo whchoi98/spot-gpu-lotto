@@ -1,8 +1,9 @@
 bedrock-agentcore
 strands-agents
 strands-agents-tools
-redis
+boto3
+httpx
+kubernetes
 pydantic
 pydantic-settings
-httpx
 structlog

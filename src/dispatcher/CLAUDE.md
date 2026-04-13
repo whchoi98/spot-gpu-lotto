@@ -27,4 +27,6 @@ creates GPU Pods via Kubernetes API, and records job state in Redis.
 - Always use `job.get("key") or default` (not `job.get("key", default)`) to handle None values
 - `k8s_mode: dry-run` skips actual Pod creation (dev environment)
 - `dispatch_mode: agent` logs a warning and falls back to rule-based dispatch (agent runs on AgentCore Runtime, not in dispatcher)
-- Pod builder supports two storage modes: "fsx" (FSx Lustre PVCs) and "s3" (S3 Mountpoint PVCs)
+- Pod builder supports two storage modes: "fsx" (FSx Lustre PVCs) and "s3" (emptyDir fallback)
+- Pod builder uses `nodeSelector: gpu-lotto/pool: gpu-spot` (NOT `eks.amazonaws.com/instance-gpu-name`)
+  because EKS Auto Mode cannot match GPU name labels with Spot offerings at scheduling time

@@ -1,36 +1,42 @@
-"""BedrockAgentCore entrypoint for the GPU Spot Lotto agent."""
+"""BedrockAgentCore entrypoint for the GPU Spot Lotto agent.
+
+Architecture:
+  - Job Management: httpx → API Server → Redis (single data path)
+  - Infra Management: boto3/kubernetes → AWS APIs (direct access)
+"""
 import sys
 from pathlib import Path
 
-# AgentCore Runtime places source at /var/task/src/agent/app.py.
-# Add /var/task/src to sys.path so "from agent.xxx" and "from common.xxx" resolve.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp  # noqa: E402
 from strands import Agent  # noqa: E402
 
-from agent.system_prompt import SYSTEM_PROMPT
-from agent.tools import (
-    check_spot_prices,
-    get_failure_history,
-    get_job_status,
-    list_active_jobs,
-    submit_gpu_job,
+from agent.system_prompt import SYSTEM_PROMPT  # noqa: E402
+from agent.tools_infra import (  # noqa: E402
+    describe_nodepool,
+    describe_redis,
+    get_cost_summary,
+    get_helm_status,
+    list_clusters,
+    list_nodes,
+    list_pods,
 )
-from common.config import get_settings
+from agent.tools_jobs import (  # noqa: E402
+    cancel_job,
+    get_job_status,
+    get_prices,
+    get_stats,
+    list_jobs,
+    submit_job,
+)
+from common.config import get_settings  # noqa: E402
 
 app = BedrockAgentCoreApp()
 
-TOOLS = [check_spot_prices, submit_gpu_job, get_job_status, list_active_jobs, get_failure_history]
-
-
-def create_agent() -> Agent:
-    settings = get_settings()
-    return Agent(
-        model=settings.agent_model,
-        tools=TOOLS,
-        system_prompt=SYSTEM_PROMPT,
-    )
+JOB_TOOLS = [get_prices, submit_job, get_job_status, cancel_job, list_jobs, get_stats]
+INFRA_TOOLS = [list_clusters, list_nodes, list_pods, describe_nodepool, get_helm_status,
+               describe_redis, get_cost_summary]
 
 
 @app.entrypoint
@@ -40,7 +46,11 @@ def invoke(payload, context):
         "prompt",
         "No prompt provided. Ask the user what GPU job they'd like to run.",
     )
-    agent = create_agent()
+    agent = Agent(
+        model=get_settings().agent_model,
+        tools=JOB_TOOLS + INFRA_TOOLS,
+        system_prompt=SYSTEM_PROMPT,
+    )
     result = agent(prompt)
     return {"result": result.message}
 

@@ -6,7 +6,7 @@ import asyncio
 from prometheus_client import start_http_server
 
 from common.config import get_settings
-from common.k8s_client import get_k8s_client
+from common.k8s_client import get_k8s_client, invalidate_client
 from common.logging import get_logger, setup_logging
 from common.redis_client import close_redis, get_redis
 from dispatcher.capacity import init_capacity
@@ -29,6 +29,8 @@ async def reap_loop(r) -> None:
             return pod.status.phase
         except Exception as e:
             log.warning("pod_read_error", region=region, pod_name=pod_name, error=str(e))
+            if "Unauthorized" in str(e) or "401" in str(e):
+                invalidate_client(region)
             return None
 
     def _delete_pod(region: str, pod_name: str) -> bool:
@@ -41,6 +43,8 @@ async def reap_loop(r) -> None:
             return True
         except Exception as e:
             log.error("pod_delete_error", region=region, pod_name=pod_name, error=str(e))
+            if "Unauthorized" in str(e) or "401" in str(e):
+                invalidate_client(region)
             return False
 
     while True:

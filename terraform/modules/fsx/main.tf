@@ -36,20 +36,14 @@ resource "aws_fsx_lustre_file_system" "this" {
   deployment_type    = "SCRATCH_2"
   storage_type       = "SSD"
 
+  # SCRATCH_2 uses inline import_path (not separate Data Repository Association)
+  import_path = var.s3_import_path
+  export_path = "${var.s3_import_path}/export"
+
   tags = { Name = "${var.name}-fsx" }
-}
 
-resource "aws_fsx_data_repository_association" "this" {
-  file_system_id       = aws_fsx_lustre_file_system.this.id
-  data_repository_path = var.s3_import_path
-  file_system_path     = "/data"
-
-  s3 {
-    auto_export_policy {
-      events = ["NEW", "CHANGED", "DELETED"]
-    }
-    auto_import_policy {
-      events = ["NEW", "CHANGED", "DELETED"]
-    }
-  }
+  depends_on = [
+    aws_security_group_rule.fsx_lustre_inbound,
+    aws_security_group_rule.fsx_lustre_outbound,
+  ]
 }

@@ -105,8 +105,7 @@ export default function Guide() {
           {[1, 2, 3].map((n) => {
             const Icon = stepIcons[n - 1]!;
             return (
-              <Card key={n} className="relative overflow-hidden">
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-violet-600" />
+              <Card key={n}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4 text-blue-500" />

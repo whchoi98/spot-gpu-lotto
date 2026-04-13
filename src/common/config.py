@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     # Agent
     dispatch_mode: str = "rule"  # "rule" or "agent"
     agent_model: str = "global.anthropic.claude-sonnet-4-6"
+    api_server_url: str = "https://d370iz4ydsallw.cloudfront.net"  # API Server URL for agent
 
     model_config = {"env_prefix": "", "case_sensitive": False}
 

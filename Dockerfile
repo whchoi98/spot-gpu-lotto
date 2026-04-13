@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install dependencies only (cached layer)
 COPY pyproject.toml .
-RUN pip install --no-cache-dir . && rm -rf /root/.cache/pip
+RUN pip install --no-cache-dir . awscli && rm -rf /root/.cache/pip
 
 # Copy source code
 COPY src/ src/

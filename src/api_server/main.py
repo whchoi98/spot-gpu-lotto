@@ -6,6 +6,7 @@ from fastapi.responses import PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from api_server.routes.admin import router as admin_router
+from api_server.routes.agent import router as agent_router
 from api_server.routes.health import router as health_router
 from api_server.routes.jobs import router as jobs_router
 from api_server.routes.prices import router as prices_router
@@ -33,6 +34,7 @@ app.include_router(jobs_router)
 app.include_router(upload_router)
 app.include_router(templates_router)
 app.include_router(admin_router)
+app.include_router(agent_router)
 
 
 @app.get("/metrics")

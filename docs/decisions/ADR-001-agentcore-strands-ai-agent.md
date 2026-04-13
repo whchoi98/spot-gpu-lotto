@@ -27,10 +27,11 @@ price trends, failure patterns, and user preferences.
 Adopted Strands Agents SDK for the agent framework and Amazon Bedrock AgentCore Runtime for serverless deployment. AgentCore Gateway exposes the REST API as MCP tools for external agent integration.
 
 Key design choices:
-- Each tool has an async `_impl` function (testable with fakeredis) and a sync `@tool` wrapper
+- Single data path: Agent → MCPClient → AgentCore Gateway → API Server → Redis
+- Agent uses MCPClient to auto-discover tools from Gateway (no duplicate Redis access logic)
 - `dispatch_mode` setting (`rule` | `agent`) controls whether the dispatcher uses traditional or AI logic
 - Agent model: `global.anthropic.claude-sonnet-4-6` (configurable via `AGENT_MODEL` env var)
-- Gateway uses filtered OpenAPI spec (`openapi-gateway.json`) exposing 6 agent-relevant endpoints
+- Gateway uses filtered OpenAPI spec (`openapi-gateway.json`) exposing 6 MCP tools
 
 ## Consequences
 
@@ -38,7 +39,7 @@ Key design choices:
 - Natural-language GPU job management (price analysis, failure-aware dispatch)
 - External agents can use GPU Spot Lotto via MCP Protocol
 - Serverless deployment — no infra management for agent runtime
-- Clean separation: `_impl` functions are unit-testable, `@tool` wrappers handle runtime concerns
+- Single data path eliminates duplicate logic — API Server is the sole data gateway
 
 ### Negative
 - AgentCore Runtime in PUBLIC mode cannot access ElastiCache Redis (requires VPC config for production)

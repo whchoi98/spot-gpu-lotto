@@ -1,10 +1,11 @@
-# 각 Spot 리전 EKS 클러스터에 적용할 FSx for Lustre PV/PVC
-# FSx 파일시스템 ID와 DNS는 setup-storage.sh 실행 후 치환 필요
+# FSx for Lustre PV/PVC — applied per Spot region EKS cluster
+# Requires: FSx filesystem ID, DNS name, and mount name from Terraform output
+# Usage: envsubst < fsx-lustre-pv.yaml | kubectl --context <ctx> apply -f -
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: fsx-lustre-pv
+  name: fsx-lustre-models-pv
 spec:
   capacity:
     storage: 1200Gi
@@ -15,15 +16,15 @@ spec:
   storageClassName: ""
   csi:
     driver: fsx.csi.aws.com
-    volumeHandle: "${FSX_FILESYSTEM_ID}"  # setup-storage.sh 출력값으로 치환
+    volumeHandle: "${FSX_FILESYSTEM_ID}-models"
     volumeAttributes:
-      dnsname: "${FSX_DNS_NAME}"          # 예: fs-xxx.fsx.us-east-2.amazonaws.com
-      mountname: "${FSX_MOUNT_NAME}"      # 예: abcdef
+      dnsname: "${FSX_DNS_NAME}"
+      mountname: "${FSX_MOUNT_NAME}"
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: fsx-lustre-pvc
+  name: fsx-lustre-models-pvc
   namespace: gpu-jobs
 spec:
   accessModes:
@@ -32,4 +33,37 @@ spec:
   resources:
     requests:
       storage: 1200Gi
-  volumeName: fsx-lustre-pv
+  volumeName: fsx-lustre-models-pv
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: fsx-lustre-results-pv
+spec:
+  capacity:
+    storage: 1200Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  csi:
+    driver: fsx.csi.aws.com
+    volumeHandle: "${FSX_FILESYSTEM_ID}-results"
+    volumeAttributes:
+      dnsname: "${FSX_DNS_NAME}"
+      mountname: "${FSX_MOUNT_NAME}"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fsx-lustre-results-pvc
+  namespace: gpu-jobs
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1200Gi
+  volumeName: fsx-lustre-results-pv

@@ -1,6 +1,7 @@
 """Cross-cluster Kubernetes client manager using Pod Identity."""
 import json
 import subprocess
+import time
 
 from kubernetes import client
 
@@ -9,8 +10,12 @@ from common.logging import get_logger
 
 log = get_logger("k8s_client")
 
-# Cache K8s API clients per region
+# EKS tokens expire after ~15 min; refresh at 10 min to avoid edge failures
+_TOKEN_TTL_SECONDS = 600
+
+# Cache K8s API clients per region with creation timestamp
 _clients: dict[str, client.CoreV1Api] = {}
+_client_created_at: dict[str, float] = {}
 
 
 def _get_eks_token(cluster_name: str, region: str) -> str:
@@ -42,15 +47,29 @@ _REGION_SHORT = {
 }
 
 
+def _is_token_expired(region: str) -> bool:
+    """Check if the cached client's token has exceeded the TTL."""
+    created = _client_created_at.get(region)
+    if created is None:
+        return True
+    return (time.monotonic() - created) > _TOKEN_TTL_SECONDS
+
+
 def get_k8s_client(region: str) -> client.CoreV1Api:
-    """Get a K8s API client for the given region's EKS cluster."""
+    """Get a K8s API client for the given region's EKS cluster.
+
+    Automatically refreshes the client when the EKS auth token approaches
+    expiry (~10 min TTL, tokens last ~15 min).
+    """
     settings = get_settings()
 
     if settings.k8s_mode == "dry-run":
         log.info("k8s_dry_run_mode", region=region)
         return _create_dry_run_client()
 
-    if region not in _clients:
+    if region not in _clients or _is_token_expired(region):
+        if region in _clients:
+            log.info("k8s_token_expired_refreshing", region=region)
         short = _REGION_SHORT.get(region)
         if short is None:
             raise ValueError(
@@ -64,9 +83,11 @@ def get_k8s_client(region: str) -> client.CoreV1Api:
 
         cfg = client.Configuration()
         cfg.host = endpoint
-        cfg.api_key = {"BearerToken": token}
+        cfg.api_key["authorization"] = token
+        cfg.api_key_prefix["authorization"] = "Bearer"
         cfg.ssl_ca_cert = _write_ca_cert(ca_data, region)
         _clients[region] = client.CoreV1Api(client.ApiClient(cfg))
+        _client_created_at[region] = time.monotonic()
         log.info("k8s_client_created", region=region, cluster=cluster_name)
 
     return _clients[region]
@@ -75,6 +96,7 @@ def get_k8s_client(region: str) -> client.CoreV1Api:
 def invalidate_client(region: str) -> None:
     """Remove cached client (e.g., on auth error) so next call creates a fresh one."""
     _clients.pop(region, None)
+    _client_created_at.pop(region, None)
 
 
 def _write_ca_cert(ca_data: str, region: str) -> str:

@@ -27,3 +27,11 @@ frontend/**/*.tsbuildinfo
 
 # Helm secret values (contain infrastructure endpoints)
 helm/**/values-*.secret.yaml
+
+# Terraform
+.terraform/
+*.tfplan
+tfplan*
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl

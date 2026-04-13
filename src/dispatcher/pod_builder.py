@@ -12,7 +12,6 @@ def build_gpu_pod(job_id: str, job: dict) -> client.V1Pod:
     """
     storage_mode = job.get("storage_mode", "s3")
     checkpoint_enabled = job.get("checkpoint_enabled", False)
-    gpu_type = job.get("gpu_type", "l4")
     gpu_count = job.get("gpu_count", 1)
 
     # Volume mounts
@@ -27,7 +26,7 @@ def build_gpu_pod(job_id: str, job: dict) -> client.V1Pod:
         client.V1EnvVar(name="CHECKPOINT_ENABLED", value=str(checkpoint_enabled).lower()),
     ]
 
-    # Storage volumes
+    # Storage volumes — use PVCs when available, emptyDir as fallback
     if storage_mode == "fsx":
         volumes = [
             client.V1Volume(
@@ -43,33 +42,17 @@ def build_gpu_pod(job_id: str, job: dict) -> client.V1Pod:
                 ),
             ),
         ]
-    else:  # S3 Mountpoint
+    else:
         volumes = [
-            client.V1Volume(
-                name="models",
-                persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
-                    claim_name="s3-models-pvc"
-                ),
-            ),
-            client.V1Volume(
-                name="results",
-                persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
-                    claim_name="s3-results-pvc"
-                ),
-            ),
+            client.V1Volume(name="models", empty_dir=client.V1EmptyDirVolumeSource()),
+            client.V1Volume(name="results", empty_dir=client.V1EmptyDirVolumeSource()),
         ]
 
     # Checkpoint volume (if enabled)
     if checkpoint_enabled:
-        checkpoint_pvc = (
-            "fsx-lustre-checkpoints-pvc" if storage_mode == "fsx" else "s3-checkpoints-pvc"
-        )
         volumes.append(
             client.V1Volume(
-                name="checkpoints",
-                persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
-                    claim_name=checkpoint_pvc
-                ),
+                name="checkpoints", empty_dir=client.V1EmptyDirVolumeSource()
             )
         )
         volume_mounts.append(
@@ -107,6 +90,9 @@ def build_gpu_pod(job_id: str, job: dict) -> client.V1Pod:
                     env=env_vars,
                 )
             ],
-            node_selector={"karpenter.k8s.aws/instance-gpu-name": gpu_type},
+            # GPU type is constrained by the gpu-spot NodePool's instance type list.
+            # EKS Auto Mode nodeSelector for instance-gpu-name causes scheduling
+            # failures because Karpenter's pre-evaluation can't match Spot offerings.
+            node_selector={"gpu-lotto/pool": "gpu-spot"},
         ),
     )

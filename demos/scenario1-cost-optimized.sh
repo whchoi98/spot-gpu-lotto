@@ -231,7 +231,7 @@ echo
 
 JOB_PAYLOAD='{
   "image": "nvidia/cuda:12.2.0-runtime-ubuntu22.04",
-  "command": ["python3", "-c", "import time; print(\"Starting LoRA fine-tuning...\"); time.sleep(120); print(\"Training complete!\")"],
+  "command": ["/bin/sh", "-c", "echo Starting LoRA fine-tuning... && nvidia-smi && sleep 30 && echo Training complete!"],
   "instance_type": "g6.xlarge",
   "gpu_type": "L4",
   "gpu_count": 1,

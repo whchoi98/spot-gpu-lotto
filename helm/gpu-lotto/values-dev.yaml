@@ -4,12 +4,12 @@
 global:
   image:
     registry: ""  # set via CI: 123456789.dkr.ecr.ap-northeast-2.amazonaws.com
-    tag: "v9"
+    tag: "v16-arm64"
 
 config:
   redisUrl: ""  # set via CI: rediss://master.<cluster>.cache.amazonaws.com:6379
   authEnabled: "false"
-  k8sMode: "dry-run"
+  k8sMode: "live"
   clusterPrefix: "gpu-lotto-dev"
   priceMode: "live"
   pollInterval: "30"
@@ -26,13 +26,16 @@ dispatcher:
 frontend:
   replicas: 1
   image:
-    tag: "v6"
+    tag: "v9-arm64"
 
 ingress:
   enabled: false
 
 networkPolicy:
   enabled: false
+
+nodeSelector:
+  kubernetes.io/arch: arm64
 
 monitoring:
   enabled: true

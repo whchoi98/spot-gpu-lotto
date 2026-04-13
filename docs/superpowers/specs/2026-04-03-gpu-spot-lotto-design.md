@@ -365,8 +365,8 @@ provider "aws" { alias = "seoul";     region = "ap-northeast-2" }
 **EKS:**
 - Auto Mode (Karpenter 내장)
 - Pod Identity Agent addon 활성화
-- 서울: managed node group (t3.medium × 2, 컨트롤 플레인 워크로드)
-- Spot 리전: managed node group 없음 (Karpenter 전용)
+- 서울: EKS Auto Mode Only (Karpenter general-purpose, 3 nodes across 3 AZs)
+- Spot 리전: EKS Auto Mode Only (Karpenter general-purpose + gpu-spot NodePool)
 - 엔드포인트: 서울=프라이빗, Spot=퍼블릭+프라이빗
 
 **Pod Identity:**

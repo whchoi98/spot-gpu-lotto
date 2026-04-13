@@ -55,7 +55,7 @@ module "eks_seoul" {
   endpoint_public_access  = true
   public_access_cidrs     = var.eks_public_access_cidrs
   admin_principal_arn     = var.eks_admin_principal_arn
-  enable_node_group       = true
+  enable_node_group       = false
 }
 
 module "eks_use1" {
@@ -368,40 +368,40 @@ module "pod_identity_usw2" {
 }
 
 # ============================================================
-# FSx Lustre — 3 Spot regions (disabled for dev — SCRATCH_2 needs import_path refactor)
+# FSx Lustre — 3 Spot regions
 # ============================================================
-# module "fsx_use1" {
-#   source    = "../../modules/fsx"
-#   providers = { aws = aws.us_east_1 }
-#   name               = "${local.name}-use1"
-#   vpc_id             = module.vpc_use1.vpc_id
-#   subnet_id          = module.vpc_use1.private_subnet_ids[0]
-#   subnet_cidr        = var.vpc_cidrs["us-east-1"]
-#   security_group_ids = [module.eks_use1.cluster_security_group_id]
-#   s3_import_path     = "s3://${module.s3.bucket_id}"
-# }
-#
-# module "fsx_use2" {
-#   source    = "../../modules/fsx"
-#   providers = { aws = aws.us_east_2 }
-#   name               = "${local.name}-use2"
-#   vpc_id             = module.vpc_use2.vpc_id
-#   subnet_id          = module.vpc_use2.private_subnet_ids[0]
-#   subnet_cidr        = var.vpc_cidrs["us-east-2"]
-#   security_group_ids = [module.eks_use2.cluster_security_group_id]
-#   s3_import_path     = "s3://${module.s3.bucket_id}"
-# }
-#
-# module "fsx_usw2" {
-#   source    = "../../modules/fsx"
-#   providers = { aws = aws.us_west_2 }
-#   name               = "${local.name}-usw2"
-#   vpc_id             = module.vpc_usw2.vpc_id
-#   subnet_id          = module.vpc_usw2.private_subnet_ids[0]
-#   subnet_cidr        = var.vpc_cidrs["us-west-2"]
-#   security_group_ids = [module.eks_usw2.cluster_security_group_id]
-#   s3_import_path     = "s3://${module.s3.bucket_id}"
-# }
+module "fsx_use1" {
+  source    = "../../modules/fsx"
+  providers = { aws = aws.us_east_1 }
+  name               = "${local.name}-use1"
+  vpc_id             = module.vpc_use1.vpc_id
+  subnet_id          = module.vpc_use1.private_subnet_ids[0]
+  subnet_cidr        = var.vpc_cidrs["us-east-1"]
+  security_group_ids = [module.eks_use1.cluster_security_group_id]
+  s3_import_path     = "s3://${module.s3.bucket_id}"
+}
+
+module "fsx_use2" {
+  source    = "../../modules/fsx"
+  providers = { aws = aws.us_east_2 }
+  name               = "${local.name}-use2"
+  vpc_id             = module.vpc_use2.vpc_id
+  subnet_id          = module.vpc_use2.private_subnet_ids[0]
+  subnet_cidr        = var.vpc_cidrs["us-east-2"]
+  security_group_ids = [module.eks_use2.cluster_security_group_id]
+  s3_import_path     = "s3://${module.s3.bucket_id}"
+}
+
+module "fsx_usw2" {
+  source    = "../../modules/fsx"
+  providers = { aws = aws.us_west_2 }
+  name               = "${local.name}-usw2"
+  vpc_id             = module.vpc_usw2.vpc_id
+  subnet_id          = module.vpc_usw2.private_subnet_ids[0]
+  subnet_cidr        = var.vpc_cidrs["us-west-2"]
+  security_group_ids = [module.eks_usw2.cluster_security_group_id]
+  s3_import_path     = "s3://${module.s3.bucket_id}"
+}
 
 # ============================================================
 # Monitoring — disabled for dev (enable in prod)

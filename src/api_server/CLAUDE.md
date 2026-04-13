@@ -33,6 +33,9 @@ Auth: Cognito JWT in prod, hardcoded `dev-user/admin` when `AUTH_ENABLED=false`.
 - `PUT /api/admin/regions/{region}/capacity` -- Update region capacity
 - `GET /api/admin/stats` -- Active job count + queue depth
 
+### Agent (`routes/agent.py`, prefix `/api/agent`)
+- `POST /api/agent/chat` -- AI chat (Bedrock Converse API + Redis context, hybrid approval model)
+
 ### Health (`routes/health.py`)
 - `GET /healthz` -- Liveness probe
 - `GET /readyz` -- Readiness probe (checks Redis)
@@ -46,6 +49,7 @@ Auth: Cognito JWT in prod, hardcoded `dev-user/admin` when `AUTH_ENABLED=false`.
 - `routes/jobs.py` -- Job CRUD + SSE streaming
 - `routes/prices.py` -- Price query endpoints
 - `routes/admin.py` -- Admin-only endpoints
+- `routes/agent.py` -- AI agent chat (Bedrock Converse + Redis context)
 - `routes/templates.py` -- Job template CRUD
 - `routes/upload.py` -- S3 presigned URL generation
 - `routes/health.py` -- Liveness and readiness probes

@@ -1,6 +1,8 @@
 import axios from "axios";
 import type {
   AdminStats,
+  AgentChatMessage,
+  AgentChatResponse,
   JobRecord,
   JobRequest,
   PriceEntry,
@@ -102,5 +104,17 @@ export async function updateRegionCapacity(region: string, capacity: number) {
 
 export async function fetchAdminStats(): Promise<AdminStats> {
   const { data } = await api.get<AdminStats>("/admin/stats");
+  return data;
+}
+
+// --- Agent ---
+export async function sendAgentChat(
+  message: string,
+  history: AgentChatMessage[],
+): Promise<AgentChatResponse> {
+  const { data } = await api.post<AgentChatResponse>("/agent/chat", {
+    message,
+    history: history.map((m) => ({ role: m.role, content: m.content })),
+  });
   return data;
 }

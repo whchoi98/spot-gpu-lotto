@@ -104,6 +104,13 @@ ingress:
   cognitoClientId: ""
   cognitoUserPoolDomain: ""
 
+nodeSelector: {}
+
+topologySpread:
+  enabled: true
+  maxSkew: 1
+  whenUnsatisfiable: DoNotSchedule
+
 networkPolicy:
   enabled: true
 
