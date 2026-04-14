@@ -5,7 +5,7 @@ Shared utilities, models, configuration, and client factories used by all servic
 (api_server, dispatcher, price_watcher).
 
 ## Key Files
-- `config.py` -- `Settings` class via pydantic-settings (env vars: REDIS_URL, K8S_MODE, DISPATCH_MODE, AGENT_MODEL, etc.)
+- `config.py` -- `Settings` class via pydantic-settings (env vars: REDIS_URL, K8S_MODE, DISPATCH_MODE, AGENT_MODEL, API_SERVER_URL, S3_BUCKET, etc.)
 - `models.py` -- Pydantic models: `JobRequest`, `JobRecord`, `JobStatus` enum
 - `redis_client.py` -- Async Redis connection factory (singleton)
 - `k8s_client.py` -- Kubernetes client factory per region (uses `aws eks get-token`)

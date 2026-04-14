@@ -8,24 +8,41 @@ Seoul (ap-northeast-2) control plane orchestrates GPU jobs across 3 US Spot regi
 
 ## Tech Stack
 - Backend: Python 3.11, FastAPI, Redis, boto3/aioboto3, kubernetes, pydantic-settings, structlog
-- Frontend: React 18, Vite, shadcn/ui, TanStack Query, react-i18next (ko/en)
-- AI Agent: Strands Agents SDK, Amazon Bedrock AgentCore Runtime, AgentCore Gateway (MCP)
-- Infra: Helm 3, Terraform (13 modules), Karpenter, FSx Lustre, ALB + CloudFront
+- Frontend: React 18, Vite, shadcn/ui, TanStack Query, react-i18next (ko/en), react-markdown + remark-gfm
+- AI Agent (dual architecture):
+  - AgentCore Runtime (us-east-1): Strands SDK agent with httpx→API + boto3→AWS tools
+  - In-API Bedrock Converse: Chat endpoint with Redis context injection + hybrid approval model
+  - AgentCore Gateway: MCP Protocol bridge for external agents
+- Infra: Helm 3, Terraform (13 modules), Karpenter, FSx Lustre, ALB + CloudFront, Grafana dashboards
 - Testing: pytest + fakeredis (unit), testcontainers (integration), ruff, mypy
 
 ## Key Architecture
 ```
 User -> CloudFront -> ALB -> API Server -> Redis (prices + queue)
-                                              |
-                             Dispatcher (BRPOP -> cheapest region EKS)
-                             Price Watcher (60s polling, EC2 Spot API)
+                                |              |
+                     /api/agent/chat     Dispatcher (BRPOP -> cheapest region EKS)
+                     (Bedrock Converse    Price Watcher (60s polling, EC2 Spot API)
+                      + Redis context)
+
+User (NL) -> AgentCore Runtime (us-east-1) -> Strands Agent -> API Server (httpx)
+                                                            -> AWS APIs (boto3/k8s)
+External Agent -> AgentCore Gateway (MCP) -> API Server
 
 Seoul S3 Hub <-> FSx Lustre (us-east-1, us-east-2, us-west-2)
 ```
 
+## Dual Agent Architecture (ADR-002)
+- **Chat endpoint** (`routes/agent.py`): Bedrock Converse API, Redis context injection, hybrid approval model with `proposal` code blocks. Single-turn, runs inside API server.
+- **Strands agent** (`src/agent/`): Full tool-use agent on AgentCore Runtime (us-east-1). Job tools use httpx→API Server (no direct Redis). Infra tools use boto3/kubernetes directly.
+- Both use `AGENT_MODEL` setting (default: `global.anthropic.claude-sonnet-4-6`)
+
+## Agent Tool Split
+- `tools_jobs.py`: httpx → API Server (get_prices, submit_job, get_job_status, cancel_job, list_jobs, get_stats)
+- `tools_infra.py`: boto3/kubernetes → AWS (list_clusters, list_nodes, list_pods, describe_nodepool, get_helm_status, describe_redis, get_cost_summary)
+
 ## Critical Rules
 1. All Redis operations MUST be async (`await r.xxx()`)
-2. Use `dict.get("key") or default` pattern (not `dict.get("key", default)`) — Redis returns None for missing fields
+2. Use `dict.get("key") or default` pattern — Redis returns None for missing fields
 3. Python: ruff (E, F, I, N, W), line-length=100, target py311, mypy strict
 4. TypeScript: strict mode, path alias `@/` -> `src/`
 5. i18n: both `ko` and `en` translations required for all UI text
@@ -34,20 +51,26 @@ Seoul S3 Hub <-> FSx Lustre (us-east-1, us-east-2, us-west-2)
 8. Docker images: cross-compile `--platform linux/amd64` (dev host is ARM)
 9. ECR tags are immutable — always increment version
 10. Git: conventional commits (`feat:`, `fix:`, `docs:`)
+11. Agent tools_jobs: always go through API Server (httpx), never direct Redis
+12. Agent tools_infra: direct boto3/kubernetes calls (no API proxy)
 
 ## Project Structure
 ```
 src/
-  api_server/     — FastAPI REST API (18 endpoints)
+  api_server/     — FastAPI REST API (19 endpoints, includes /api/agent/chat)
+    routes/agent.py — Bedrock Converse chat with Redis context + hybrid approval
   common/         — Shared models, config, Redis/K8s clients, metrics
   dispatcher/     — Job queue processor, pod builder, region selector
   price_watcher/  — EC2 Spot price collector (60s polling)
-  agent/          — Strands AI agent (AgentCore Runtime)
+  agent/          — Strands AI agent (AgentCore Runtime, us-east-1)
+    tools_jobs.py   — httpx → API Server
+    tools_infra.py  — boto3 → AWS APIs
   tests/          — pytest (unit: fakeredis, integration: testcontainers)
 frontend/         — React SPA (Vite + shadcn/ui)
-helm/gpu-lotto/   — Helm 3 chart
-terraform/        — 13 IaC modules (VPC, EKS, ElastiCache, etc.)
-k8s/              — Karpenter NodePool, FSx/S3 PV manifests
+  src/pages/Agent.tsx — Chat UI with markdown rendering + action approval
+helm/gpu-lotto/   — Helm 3 chart + Grafana dashboard ConfigMap
+terraform/        — 13 IaC modules (VPC, EKS, ElastiCache, FSx, etc.)
+k8s/              — Karpenter NodePool, FSx/S3 PV manifests (envsubst templated)
 demos/            — 4 interactive demo scripts
 docs/             — API reference, onboarding, ADRs, runbooks
 ```
@@ -58,6 +81,10 @@ docs/             — API reference, onboarding, ADRs, runbooks
 - `gpu:jobs:{job_id}` — Hash: job record fields
 - `gpu:active_jobs` — Set: active job IDs
 - `gpu:jobs:{job_id}:status` — Pub/Sub channel for SSE
+- `gpu:capacity:{region}` — String: available GPU slots per region
+
+## Config (pydantic-settings)
+Key fields: `redis_url`, `k8s_mode`, `auth_enabled`, `dispatch_mode`, `agent_model`, `spot_regions`, `cluster_prefix`, `api_server_url`
 
 ## Key Commands
 ```bash
@@ -70,13 +97,12 @@ ruff check src/ && mypy src/       # lint + type check
 cd frontend && npm run dev         # dev server
 npx tsc --noEmit                   # type check
 
+# Agent (AgentCore)
+agentcore dev                      # local dev
+agentcore deploy                   # deploy to us-east-1
+agentcore invoke '{"prompt":"..."}'
+
 # Deploy
 helm upgrade gpu-lotto helm/gpu-lotto -n gpu-lotto -f helm/gpu-lotto/values-dev.yaml
 kubectl rollout restart deploy/gpu-lotto-api-server deploy/gpu-lotto-dispatcher -n gpu-lotto
 ```
-
-## Documentation Sync
-- New directory under `src/` → update this file or create module docs
-- API endpoint added/changed → update `docs/api-reference.md`
-- Architecture decision → create `docs/decisions/ADR-NNN-title.md`
-- Infrastructure change → update relevant terraform/helm docs

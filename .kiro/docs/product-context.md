@@ -11,14 +11,16 @@ GPU compute is expensive. Spot instances offer 60-90% savings but prices fluctua
 - Automatic dispatch to cheapest region with available capacity
 - Spot interruption recovery with checkpoint preservation
 - Hub-and-Spoke data sync (Seoul S3 → FSx Lustre per region)
-- AI agent for natural-language job management
+- Dual AI agent: chat UI with approval model + standalone Strands agent on AgentCore
 
 ## Users
 - ML engineers submitting GPU training jobs
 - Platform admins managing capacity and monitoring costs
 - External AI agents via MCP Gateway
+- Users interacting via natural-language chat UI
 
 ## Key Workflows
 1. User submits job → queued in Redis → dispatcher picks cheapest region → Pod created on EKS
 2. Spot interruption → checkpoint saved → job rescheduled to next cheapest region
-3. User asks AI agent "find cheapest p4d.24xlarge" → agent queries prices → submits job
+3. User chats in Agent UI → Bedrock Converse sees live prices/stats → proposes action → user approves
+4. External agent calls AgentCore Gateway (MCP) → Strands agent → httpx → API Server

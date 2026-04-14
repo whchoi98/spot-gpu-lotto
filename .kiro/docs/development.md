@@ -32,7 +32,7 @@ npx tsc --noEmit     # type check
 
 ## Run Locally
 ```bash
-# API server
+# API server (includes /api/agent/chat endpoint)
 uvicorn api_server.main:app --host 0.0.0.0 --port 8000
 
 # Price watcher (background)
@@ -45,6 +45,18 @@ python -m dispatcher.main &
 cd frontend && npm run dev
 ```
 
+## Agent Development
+```bash
+# Local dev (hot reload)
+agentcore dev
+
+# Deploy to AgentCore Runtime (us-east-1)
+agentcore deploy
+
+# Test invoke
+agentcore invoke '{"prompt": "Show me current spot prices"}'
+```
+
 ## Environment Variables
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -52,7 +64,10 @@ cd frontend && npm run dev
 | `K8S_MODE` | `dry-run` | `dry-run` (dev) or `live` (prod) |
 | `AUTH_ENABLED` | `false` | Cognito JWT auth |
 | `DISPATCH_MODE` | `rule` | `rule` or `agent` |
+| `AGENT_MODEL` | `global.anthropic.claude-sonnet-4-6` | LLM model |
 | `SPOT_REGIONS` | `us-east-1,us-east-2,us-west-2` | Target regions |
+| `CLUSTER_PREFIX` | `gpu-lotto-dev` | EKS cluster name prefix |
+| `API_SERVER_URL` | CloudFront URL | API base URL for agent tools |
 | `PRICE_POLL_INTERVAL` | `60` | Price polling seconds |
 
 ## Testing
@@ -69,3 +84,4 @@ pytest -v                          # all
 | K8s API timeout | Ensure `K8S_MODE=dry-run` |
 | Frontend build fails | `rm -rf node_modules && npm install` |
 | Docker buildx missing | `docker buildx create --name amd64builder --use` |
+| Agent chat 502 | Check `AGENT_MODEL` and Bedrock access in us-east-1 |

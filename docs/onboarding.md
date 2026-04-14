@@ -47,7 +47,7 @@ cd frontend && npm run dev
 
 ## Project Overview
 - Read `CLAUDE.md` for project context, tech stack, and conventions
-- Read `docs/architecture.md` for system design (bilingual KR/EN)
+- Read `ARCHITECTURE.md` for system design
 - Review `docs/decisions/` for architectural decisions (ADRs)
 
 ## Development Workflow
@@ -72,7 +72,7 @@ cd frontend && npm run dev
 | Docker buildx not found | `docker buildx create --name amd64builder --use` |
 
 ## Resources
-- Architecture: `docs/architecture.md`
+- Architecture: `ARCHITECTURE.md`
 - ADRs: `docs/decisions/`
 - Runbooks: `docs/runbooks/`
 - Helm chart: `helm/gpu-lotto/`

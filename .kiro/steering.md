@@ -15,8 +15,16 @@
 - shadcn/ui components in `src/components/ui/` — do not modify directly
 - TanStack Query for server state
 - axios via `src/lib/api.ts` (base: `/api`)
+- react-markdown + remark-gfm for agent chat rendering
 - Types in `src/lib/types.ts` must match backend Pydantic models
 - i18n: every user-facing string needs both `ko` and `en` in `src/lib/i18n.ts`
+
+## Agent Code
+- `tools_jobs.py`: httpx → API Server only (no direct Redis)
+- `tools_infra.py`: boto3/kubernetes direct calls
+- Chat endpoint (`routes/agent.py`): Bedrock Converse + Redis context injection
+- Hybrid approval: actions proposed via `proposal` code blocks in LLM response
+- System prompt duplicated in `routes/agent.py` and `src/agent/system_prompt.py` — keep in sync
 
 ## Git
 - Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
@@ -27,7 +35,6 @@
 - `pythonpath = ["src"]` — imports: `from common.xxx import yyy`
 - Unit tests: fakeredis (no external deps)
 - Integration tests: testcontainers[redis]
-- Frontend: `npx tsc --noEmit` for type checking
 
 ## Infrastructure
 - Docker: always `--platform linux/amd64` (ARM dev host → AMD64 target)
@@ -35,6 +42,8 @@
 - Helm: `values-dev.yaml` for dev, `values-prod.yaml` for prod
 - Terraform: plan before apply, `terraform destroy` is forbidden
 - ALB: IP target type — re-register Pod IP after restart
+- FSx PV manifests: use `envsubst` for filesystem IDs (`${FSX_FILESYSTEM_ID}`, `${FSX_DNS_NAME}`, `${FSX_MOUNT_NAME}`)
+- EKS cluster naming: `{cluster_prefix}-{region_short}` (e.g. `gpu-lotto-dev-use1`)
 
 ## Security
 - No hardcoded secrets in source code

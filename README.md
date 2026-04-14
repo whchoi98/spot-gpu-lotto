@@ -29,7 +29,7 @@ User -> CloudFront -> ALB -> API Server -> Redis (price DB + job queue)
                               Price Watcher (60s polling, EC2 Spot Price API)
 
 User (natural language) -> AgentCore Runtime -> Strands AI Agent -> API (via tools)
-External Agent -> AgentCore Gateway (MCP) -> API Server
+Web Chat -> API Server -> Bedrock Converse API (streaming)
 ```
 
 ### Hub-and-Spoke Storage
@@ -54,7 +54,7 @@ External Agent -> AgentCore Gateway (MCP) -> API Server
 - **Job Templates** -- Save and reuse common job configurations to avoid repetitive form filling.
 - **Prometheus Metrics** -- Built-in `/metrics` endpoint for Grafana dashboards and alerting.
 - **AI Agent Dispatch** -- Natural-language GPU job management via Strands Agents SDK on Amazon Bedrock AgentCore Runtime. Analyzes prices, failure history, and user intent for intelligent scheduling.
-- **MCP Gateway** -- AgentCore Gateway exposes REST API as MCP Protocol tools, enabling external AI agents to use GPU Spot Lotto as a tool.
+- **AI Agent Web Chat** -- Browser-based chat UI that streams responses via Bedrock Converse API, enabling natural-language GPU job management directly from the dashboard.
 - **Interactive Demos** -- Four bash demo scripts that call real API endpoints with animated terminal UI.
 
 ## Prerequisites
@@ -73,7 +73,7 @@ External Agent -> AgentCore Gateway (MCP) -> API Server
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/<your-org>/gpu-spot-lotto.git
+git clone https://github.com/whchoi98/spot-gpu-lotto.git
 cd gpu-spot-lotto
 ```
 
@@ -217,7 +217,7 @@ All configuration is managed through environment variables via `pydantic-setting
 
 ### Helm Values
 
-- `values-dev.yaml` -- Dev environment: dry-run mode, single replicas, auth disabled
+- `values-dev.yaml` -- Dev environment: live mode, single replicas, auth disabled
 - `values-prod.yaml` -- Prod environment: live mode, HPA enabled, Cognito auth
 
 ## Project Structure
@@ -225,19 +225,19 @@ All configuration is managed through environment variables via `pydantic-setting
 ```
 gpu-spot-lotto/
 ├── src/
-│   ├── api_server/          # FastAPI REST API (18 endpoints)
+│   ├── api_server/          # FastAPI REST API (20 endpoints)
 │   │   ├── main.py          # App entry, CORS, router registration
 │   │   ├── auth.py          # JWT validation, role-based access
-│   │   └── routes/          # jobs, prices, admin, templates, upload, health
+│   │   └── routes/          # jobs, prices, admin, templates, upload, agent, health
 │   ├── common/              # Shared models, config, Redis/K8s clients
 │   ├── dispatcher/          # Job queue processor, pod builder, region selector
 │   ├── price_watcher/       # EC2 Spot price collector (60s polling)
 │   ├── agent/               # Strands AI agent (AgentCore Runtime)
 │   └── tests/               # pytest suite (unit + integration)
-│       ├── unit/            # 11 test modules (fakeredis, no external deps)
+│       ├── unit/            # 10 test modules (fakeredis, no external deps)
 │       └── integration/     # 5 test modules (testcontainers Redis)
 ├── frontend/                # React 18 + Vite + shadcn/ui SPA
-│   ├── src/pages/           # Dashboard, Jobs, Prices, Admin, Guide
+│   ├── src/pages/           # Dashboard, Jobs, Prices, Admin, Agent, Guide
 │   ├── src/components/      # UI primitives, job components, layout
 │   ├── src/hooks/           # TanStack Query hooks
 │   └── src/lib/             # API client, types, i18n (ko/en)
@@ -293,7 +293,7 @@ cd frontend && npx tsc --noEmit
 
 | Category | Modules | Description |
 |----------|---------|-------------|
-| Unit | auth, capacity, collector, config, models, notifier, pod_builder, reaper, region_selector, agent_config, agent_tools | Core logic tests with fakeredis |
+| Unit | auth, capacity, collector, config, models, notifier, pod_builder, reaper, region_selector, agent_config | Core logic tests with fakeredis |
 | Integration | api_admin, api_health, api_jobs, api_prices, api_templates | Full API endpoint tests with real Redis |
 
 ## API Documentation
@@ -338,6 +338,12 @@ cd frontend && npx tsc --noEmit
 | `GET` | `/api/admin/regions` | List regions with capacity |
 | `PUT` | `/api/admin/regions/{region}/capacity` | Update region capacity |
 | `GET` | `/api/admin/stats` | Job count and queue depth |
+
+### Agent
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/agent/chat` | AI agent chat (Bedrock Converse streaming) |
 
 ### Health and Metrics
 
@@ -384,7 +390,7 @@ GPU Spot Lotto는 여러 AWS 리전의 GPU Spot 인스턴스 가격을 실시간
                              프라이스 워처 (60초 주기, EC2 Spot 가격 API)
 
 사용자 (자연어) -> AgentCore Runtime -> Strands AI 에이전트 -> API (도구 호출)
-외부 에이전트 -> AgentCore Gateway (MCP) -> API 서버
+웹 채팅 -> API 서버 -> Bedrock Converse API (스트리밍)
 ```
 
 ### Hub-and-Spoke 스토리지
@@ -409,7 +415,7 @@ GPU Spot Lotto는 여러 AWS 리전의 GPU Spot 인스턴스 가격을 실시간
 - **작업 템플릿** -- 자주 사용하는 작업 설정을 저장하고 재사용하여 반복적인 폼 입력을 줄일 수 있습니다.
 - **Prometheus 메트릭** -- 내장 `/metrics` 엔드포인트를 통해 Grafana 대시보드와 알림을 구성할 수 있습니다.
 - **AI 에이전트 배치** -- Amazon Bedrock AgentCore Runtime 위의 Strands Agents SDK를 통한 자연어 GPU 작업 관리. 가격, 장애 이력, 사용자 의도를 분석하여 지능적으로 스케줄링합니다.
-- **MCP 게이트웨이** -- AgentCore Gateway가 REST API를 MCP Protocol 도구로 노출하여, 외부 AI 에이전트가 GPU Spot Lotto를 도구로 사용할 수 있습니다.
+- **AI 에이전트 웹 채팅** -- Bedrock Converse API를 통해 응답을 스트리밍하는 브라우저 기반 채팅 UI로, 대시보드에서 직접 자연어 GPU 작업 관리가 가능합니다.
 - **인터랙티브 데모** -- 실제 API 엔드포인트를 호출하는 4개의 bash 데모 스크립트를 제공합니다.
 
 ## 사전 요구 사항
@@ -428,7 +434,7 @@ GPU Spot Lotto는 여러 AWS 리전의 GPU Spot 인스턴스 가격을 실시간
 ### 저장소 복제
 
 ```bash
-git clone https://github.com/<your-org>/gpu-spot-lotto.git
+git clone https://github.com/whchoi98/spot-gpu-lotto.git
 cd gpu-spot-lotto
 ```
 
@@ -572,7 +578,7 @@ kubectl rollout restart deploy/gpu-lotto-api-server deploy/gpu-lotto-dispatcher 
 
 ### Helm Values
 
-- `values-dev.yaml` -- 개발 환경: dry-run 모드, 단일 레플리카, 인증 비활성화
+- `values-dev.yaml` -- 개발 환경: live 모드, 단일 레플리카, 인증 비활성화
 - `values-prod.yaml` -- 운영 환경: live 모드, HPA 활성화, Cognito 인증
 
 ## 프로젝트 구조
@@ -580,19 +586,19 @@ kubectl rollout restart deploy/gpu-lotto-api-server deploy/gpu-lotto-dispatcher 
 ```
 gpu-spot-lotto/
 ├── src/
-│   ├── api_server/          # FastAPI REST API (18개 엔드포인트)
+│   ├── api_server/          # FastAPI REST API (20개 엔드포인트)
 │   │   ├── main.py          # 앱 엔트리, CORS, 라우터 등록
 │   │   ├── auth.py          # JWT 검증, 역할 기반 접근 제어
-│   │   └── routes/          # jobs, prices, admin, templates, upload, health
+│   │   └── routes/          # jobs, prices, admin, templates, upload, agent, health
 │   ├── common/              # 공유 모델, 설정, Redis/K8s 클라이언트
 │   ├── dispatcher/          # 작업 큐 프로세서, Pod 빌더, 리전 선택기
 │   ├── price_watcher/       # EC2 Spot 가격 수집기 (60초 주기)
 │   ├── agent/               # Strands AI 에이전트 (AgentCore Runtime)
 │   └── tests/               # pytest 테스트 (단위 + 통합)
-│       ├── unit/            # 11개 테스트 모듈 (fakeredis, 외부 의존성 없음)
+│       ├── unit/            # 10개 테스트 모듈 (fakeredis, 외부 의존성 없음)
 │       └── integration/     # 5개 테스트 모듈 (testcontainers Redis)
 ├── frontend/                # React 18 + Vite + shadcn/ui SPA
-│   ├── src/pages/           # 대시보드, 작업, 가격, 관리자, 가이드
+│   ├── src/pages/           # 대시보드, 작업, 가격, 관리자, AI 에이전트, 가이드
 │   ├── src/components/      # UI 기본 컴포넌트, 작업 컴포넌트, 레이아웃
 │   ├── src/hooks/           # TanStack Query 훅
 │   └── src/lib/             # API 클라이언트, 타입, i18n (한/영)
@@ -648,7 +654,7 @@ cd frontend && npx tsc --noEmit
 
 | 카테고리 | 모듈 | 설명 |
 |----------|------|------|
-| 단위 | auth, capacity, collector, config, models, notifier, pod_builder, reaper, region_selector, agent_config, agent_tools | fakeredis를 사용한 핵심 로직 테스트 |
+| 단위 | auth, capacity, collector, config, models, notifier, pod_builder, reaper, region_selector, agent_config | fakeredis를 사용한 핵심 로직 테스트 |
 | 통합 | api_admin, api_health, api_jobs, api_prices, api_templates | 실제 Redis를 사용한 전체 API 엔드포인트 테스트 |
 
 ## API 문서
@@ -693,6 +699,12 @@ cd frontend && npx tsc --noEmit
 | `GET` | `/api/admin/regions` | 리전별 용량을 조회합니다 |
 | `PUT` | `/api/admin/regions/{region}/capacity` | 리전 용량을 업데이트합니다 |
 | `GET` | `/api/admin/stats` | 작업 수 및 큐 깊이를 조회합니다 |
+
+### AI 에이전트 (Agent)
+
+| 메서드 | 엔드포인트 | 설명 |
+|--------|-----------|------|
+| `POST` | `/api/agent/chat` | AI 에이전트 채팅 (Bedrock Converse 스트리밍) |
 
 ### 헬스 체크 및 메트릭
 

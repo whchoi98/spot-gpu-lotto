@@ -157,6 +157,46 @@ GET /api/admin/stats
 
 ---
 
+## Agent
+
+### Chat with AI Agent
+```
+POST /api/agent/chat
+```
+
+**Request Body**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `message` | string | Yes | - | User message |
+| `history` | ChatMessage[] | No | `[]` | Conversation history (`{role, content}`) |
+
+**Response** `200 OK`
+```json
+{
+  "content": "Markdown response text",
+  "model": "global.anthropic.claude-sonnet-4-6",
+  "actions": [
+    {
+      "action": "submit_job",
+      "instance_type": "g6.xlarge",
+      "image": "nvidia/cuda:12.2.0-runtime-ubuntu22.04",
+      "command": "nvidia-smi",
+      "gpu_count": 1,
+      "region": "us-east-2",
+      "reason": "cheapest at $0.23/hr"
+    }
+  ]
+}
+```
+
+**Notes**
+- Uses Bedrock Converse API with real-time Redis context (prices, stats, capacity)
+- `actions` array contains proposed job submissions (hybrid approval model)
+- Frontend renders proposals as approval buttons; user must confirm before execution
+
+---
+
 ## Error Codes
 
 | Code | Description |

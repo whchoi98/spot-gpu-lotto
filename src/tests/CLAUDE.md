@@ -19,8 +19,7 @@ and testcontainers for integration tests.
 - `test_pod_builder.py` -- Pod spec construction
 - `test_reaper.py` -- Job reaper logic
 - `test_region_selector.py` -- Cheapest region selection
-- `test_agent_config.py` -- Agent config (dispatch_mode, agent_model)
-- `test_agent_config.py` -- Agent config (dispatch_mode, agent_model, gateway_mcp_url)
+- `test_agent_config.py` -- Agent config (dispatch_mode, agent_model, api_server_url)
 
 ## Integration Tests
 - `test_api_admin.py` -- Admin API endpoints

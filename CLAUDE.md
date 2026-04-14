@@ -26,11 +26,12 @@ Hub-and-Spoke data architecture: Seoul S3 Hub + FSx Lustre auto-sync per spot re
 - react-router-dom v6 (routing)
 - axios (HTTP client)
 - i18next (internationalization)
+- react-markdown + remark-gfm (Agent chat markdown rendering)
 
 ### AI Agent
 - Strands Agents SDK (tool-use agent framework)
 - Amazon Bedrock AgentCore Runtime (serverless agent deployment)
-- AgentCore Gateway (MCP Protocol -- REST-to-MCP bridge via OpenAPI spec)
+- Amazon Bedrock Converse API (web chat streaming via API Server)
 
 ### Infrastructure
 - Helm 3 chart (gpu-lotto)
@@ -72,7 +73,7 @@ docs/             - Architecture, ADRs, runbooks, specs/plans
 - TypeScript: strict mode, path alias `@/` -> `src/`
 - Git commits: conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 - Config: environment variables via pydantic-settings (REDIS_URL, K8S_MODE, etc.)
-- k8s_mode: "dry-run" in dev (no real GPU clusters), "live" in prod
+- k8s_mode: "live" in dev and prod (real GPU clusters)
 - dispatch_mode: "rule" (default) or "agent" (AI-based dispatch via Strands agent)
 - agent_model: LLM model for agent (default: `global.anthropic.claude-sonnet-4-6`)
 - Images: cross-compile with `docker buildx --platform linux/amd64` (dev host is ARM Graviton)
@@ -149,7 +150,7 @@ Rules below are applied automatically after Plan mode exit and on major code cha
 ### Post-Plan Mode Actions
 After exiting Plan mode (`/plan`), before starting implementation:
 
-1. **Architecture decision made** -> Update `docs/architecture.md`
+1. **Architecture decision made** -> Update `ARCHITECTURE.md`
 2. **Technical choice/trade-off made** -> Create `docs/decisions/ADR-NNN-title.md`
 3. **New module added** -> Create `CLAUDE.md` in that module directory
 4. **Operational procedure defined** -> Create runbook in `docs/runbooks/`
@@ -161,7 +162,7 @@ After exiting Plan mode (`/plan`), before starting implementation:
 - Redis key structure changed -> Update `src/common/CLAUDE.md`
 - Dispatcher logic changed -> Update `src/dispatcher/CLAUDE.md`
 - Helm chart changed -> Update `helm/gpu-lotto/CLAUDE.md`
-- Infrastructure changed -> Update `docs/architecture.md` Infrastructure section
+- Infrastructure changed -> Update `ARCHITECTURE.md` Infrastructure section
 
 ### ADR Numbering
 Find the highest number in `docs/decisions/ADR-*.md` and increment by 1.

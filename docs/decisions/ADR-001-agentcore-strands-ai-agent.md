@@ -20,24 +20,23 @@ price trends, failure patterns, and user preferences.
 - **Cons**: Heavy dependency tree, abstractions add complexity for simple tool-use patterns
 
 ### Option 3: Strands Agents SDK + AgentCore Runtime
-- **Pros**: Lightweight `@tool` decorator pattern, serverless deployment via `agentcore deploy`, native AWS integration, MCP Gateway for external agent access
+- **Pros**: Lightweight `@tool` decorator pattern, serverless deployment via `agentcore deploy`, native AWS integration
 - **Cons**: Newer framework, smaller community, AgentCore Runtime PUBLIC mode cannot reach VPC resources (ElastiCache Redis)
 
 ## Decision
-Adopted Strands Agents SDK for the agent framework and Amazon Bedrock AgentCore Runtime for serverless deployment. AgentCore Gateway exposes the REST API as MCP tools for external agent integration.
+Adopted Strands Agents SDK for the agent framework and Amazon Bedrock AgentCore Runtime for serverless deployment.
 
 Key design choices:
-- Single data path: Agent → MCPClient → AgentCore Gateway → API Server → Redis
-- Agent uses MCPClient to auto-discover tools from Gateway (no duplicate Redis access logic)
+- Two tool categories, single agent: job tools (httpx → API Server) + infra tools (boto3/kubernetes → AWS APIs)
+- Job tools call API Server via httpx — single data path, no duplicate Redis access logic
 - `dispatch_mode` setting (`rule` | `agent`) controls whether the dispatcher uses traditional or AI logic
 - Agent model: `global.anthropic.claude-sonnet-4-6` (configurable via `AGENT_MODEL` env var)
-- Gateway uses filtered OpenAPI spec (`openapi-gateway.json`) exposing 6 MCP tools
+- Web chat uses Bedrock Converse API in API Server (see [ADR-002](ADR-002-hybrid-agent-chat-architecture.md))
 
 ## Consequences
 
 ### Positive
 - Natural-language GPU job management (price analysis, failure-aware dispatch)
-- External agents can use GPU Spot Lotto via MCP Protocol
 - Serverless deployment — no infra management for agent runtime
 - Single data path eliminates duplicate logic — API Server is the sole data gateway
 

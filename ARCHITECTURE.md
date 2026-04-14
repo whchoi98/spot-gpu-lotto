@@ -18,6 +18,7 @@
   │                   │       ├── /api/admin     (manage, stats)     │
   │                   │       ├── /api/templates (saved configs)     │
   │                   │       ├── /api/upload    (S3 presign)        │
+  │                   │       ├── /api/agent     (AI chat)           │
   │                   │       └── /metrics       (Prometheus)        │
   │                   │                 │                             │
   │                   │           Redis (ElastiCache)                 │
@@ -37,8 +38,6 @@
   │          ├── Job Tools (httpx) ──▶ API Server ──▶ Redis          │
   │          └── Infra Tools (boto3/k8s) ──▶ AWS APIs                │
   │                                                                  │
-  │  AgentCore Gateway (MCP Protocol, infra management)              │
-  │    └── OpenAPI ──▶ MCP tools for external clients                │
   └─────────────────────┬────────────────────────────────────────────┘
                         │
          ┌──────────────┼──────────────┐
@@ -62,7 +61,7 @@
 
 | Component | Source | Role |
 |-----------|--------|------|
-| API Server | `src/api_server/` | FastAPI -- 19 endpoints: jobs, prices, admin, templates, upload, agent chat, health, metrics |
+| API Server | `src/api_server/` | FastAPI -- 20 endpoints: jobs, prices, admin, templates, upload, agent chat, health, metrics |
 | Dispatcher | `src/dispatcher/` | BRPOP queue consumer, cheapest-region selector, K8s Pod creator, job reaper |
 | Price Watcher | `src/price_watcher/` | EC2 Spot price collector (60s polling) -> Redis Sorted Set |
 | AI Agent | `src/agent/` | Strands SDK agent on AgentCore Runtime -- natural-language job + infra management |
@@ -73,7 +72,7 @@
 | Component | Source | Role |
 |-----------|--------|------|
 | React SPA | `frontend/` | Dashboard, job management, price monitoring, AI agent chat, admin panel, guide |
-| Pages | `frontend/src/pages/` | Dashboard, Jobs, JobNew, JobDetail, Prices, Templates, Agent, Guide, Settings, Admin |
+| Pages | `frontend/src/pages/` | Dashboard, Jobs, JobNew, JobDetail, Prices, Templates, Agent, Guide, Settings, Admin (AdminDashboard, AdminJobs, AdminRegions) |
 | Hooks | `frontend/src/hooks/` | TanStack Query hooks: useJobs, usePrices, useAdmin, useJobStream, useTheme |
 | i18n | `frontend/src/lib/i18n.ts` | Bilingual (Korean/English) translations |
 
@@ -85,7 +84,6 @@
 | Terraform | `terraform/` | 13 IaC modules: VPC, EKS, Karpenter, ElastiCache, Cognito, ALB, CloudFront, ECR, FSx, S3, Pod Identity, GitHub OIDC, Monitoring |
 | K8s Manifests | `k8s/` | Karpenter NodePool, FSx Lustre PV, S3 Mountpoint PV |
 | AgentCore | `.bedrock_agentcore.yaml` | Agent runtime config (Python 3.11, linux/arm64) |
-| Gateway | `openapi-gateway.json` | Filtered OpenAPI spec for MCP Gateway (6 endpoints) |
 | Demos | `demos/` | 4 interactive bash demo scripts with animated terminal UI |
 
 ---
@@ -171,9 +169,9 @@ gpu:user:{user_id}:webhook       String        user's webhook URL
     (us-east-1)    (us-east-2)    (us-west-2)
          |              |              |
       GPU Pod        GPU Pod        GPU Pod
-    /data/models   /data/models   /data/models    (RO)
-    /data/results  /data/results  /data/results   (RW)
-    /data/checkpoints  ...         ...             (RW)
+    /data/models   /data/models   /data/models    (RO, FSx PVC)
+    /data/results  /data/results  /data/results   (RW, FSx PVC)
+    /data/checkpoints  ...         ...             (RW, emptyDir -- NOT persisted to S3)
 ```
 
 ### 5.2 Storage Modes
@@ -265,7 +263,7 @@ State: S3 backend with DynamoDB locking.
 
 | File | Mode | Auth | Replicas | Prices |
 |------|------|------|----------|--------|
-| `values-dev.yaml` | dry-run | disabled | 1 each | mock |
+| `values-dev.yaml` | live | disabled | 1 each | live EC2 API |
 | `values-prod.yaml` | live | Cognito | HPA | live EC2 API |
 
 ---
@@ -303,14 +301,14 @@ Two tool categories, single agent:
 - Job tools call API Server via httpx (single data path, no duplicate Redis logic)
 - Infra tools access AWS APIs directly via boto3/kubernetes with AgentCore execution role
 
-### 9.2 AgentCore Gateway (MCP Protocol — Infrastructure Management)
+### 9.2 API Server Agent Chat (Hybrid)
 
-MCP Protocol Bridge for external MCP clients to manage infrastructure:
+For web frontend chat, the API Server uses Bedrock Converse API directly (not AgentCore Runtime):
 
-- Filtered OpenAPI spec: `openapi-gateway.json`
-- External MCP clients (Claude Desktop, etc.) connect via Gateway
-- Target: Gateway → CloudFront → ALB → FastAPI
-- Purpose: EKS cluster management, AWS infrastructure monitoring via MCP protocol
+- Endpoint: `POST /api/agent/chat`
+- Injects Redis context (prices, capacity, active jobs) into each request
+- Hybrid approval model: `submit_job` requires user confirmation, read-only tools auto-approved
+- See [ADR-002](docs/decisions/ADR-002-hybrid-agent-chat-architecture.md)
 
 ### 9.3 Deployment
 
@@ -348,7 +346,7 @@ Dependencies: `requirements.txt` (project root -- AgentCore CLI auto-detects)
 | Dashboards | Grafana | ConfigMap-provisioned dashboard (jobs, queue depth, prices) |
 | Scraping | ServiceMonitor | Auto-discovered by Prometheus Operator |
 | Logging | structlog | JSON format with ISO timestamps, stack info |
-| Counters | prometheus-client | JOBS_DISPATCHED, QUEUE_DEPTH, JOB_DURATION, SPOT_PRICES |
+| Metrics | prometheus-client | API: JOBS_SUBMITTED, JOBS_ACTIVE, API_REQUEST_DURATION; Dispatcher: JOBS_DISPATCHED, JOBS_FAILED, JOBS_RETRIED, QUEUE_DEPTH, REGION_CAPACITY, JOB_DURATION; Price: SPOT_PRICE, PRICE_FETCH_ERRORS |
 
 ---
 
@@ -422,7 +420,7 @@ Dependencies: `requirements.txt` (project root -- AgentCore CLI auto-detects)
 |--------|-------|------------|
 | `scenario1-cost-optimized.sh` | 5 | Price scan, job submit, auto-dispatch, cost analysis, monitoring |
 | `scenario2-spot-recovery.sh` | 6 | Checkpoint, training, spot interruption, recovery, resume, cost |
-| `scenario3-full-lifecycle.sh` | 7 | Architecture, S3 upload, price scan, FSx import, training, export, summary |
+| `scenario3-full-lifecycle.sh` | 7 | Architecture, REAL S3 upload, price scan + capacity, FSx status + REAL dispatch, training, REAL S3 export verification, cost summary + cleanup |
 | `scenario4-ai-agent.sh` | 6 | Architecture comparison, agent price query, failure analysis, smart dispatch (hybrid approval), tool architecture, summary |
 
 All scripts: ASCII-only (no Unicode), real API calls, animated terminal UI, `GPU_LOTTO_URL` env var override.
@@ -434,6 +432,7 @@ All scripts: ASCII-only (no Unicode), real API calls, animated terminal UI, `GPU
 | Decision | Reference |
 |----------|-----------|
 | Strands + AgentCore for AI agent | [ADR-001](docs/decisions/ADR-001-agentcore-strands-ai-agent.md) |
+| Hybrid agent chat (Bedrock Converse in API Server) | [ADR-002](docs/decisions/ADR-002-hybrid-agent-chat-architecture.md) |
 | Redis as unified data store (prices + queue + state) | Sorted Set for prices, List for queue, Hash for jobs |
 | Hub-and-Spoke storage (Seoul S3 + regional FSx) | Cross-region data access with local caching |
 | Karpenter over Cluster Autoscaler | GPU-specific Spot scheduling with fine-grained instance selection |

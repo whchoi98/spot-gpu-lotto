@@ -21,6 +21,13 @@
 - Architecture decisions must be recorded as ADR in `docs/decisions/`
 - Both `ko` and `en` i18n translations required for UI text
 - Redis key structure changes must be documented
+- Agent system prompt changes must be synced between `routes/agent.py` and `src/agent/system_prompt.py`
+
+## Agent Rules
+- `tools_jobs.py`: MUST use httpx → API Server, NEVER direct Redis
+- `tools_infra.py`: direct boto3/kubernetes calls allowed
+- Chat endpoint: always inject fresh Redis context into system prompt
+- Hybrid approval: only propose actions when user explicitly requests execution
 
 ## Deployment Rules
 - Verify clean working tree before deploy
@@ -28,6 +35,7 @@
 - Use `helm upgrade` (not `helm install`) for updates
 - Run health checks after deployment (`/healthz`, `/readyz`)
 - ConfigMap changes require `kubectl rollout restart`
+- FSx PV manifests: use `envsubst` before `kubectl apply`
 
 ## Testing Rules
 - Unit tests use fakeredis — no external service dependencies
