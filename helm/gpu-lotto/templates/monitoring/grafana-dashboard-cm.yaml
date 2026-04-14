@@ -250,6 +250,59 @@ data:
           },
           "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}}
         },
+        {
+          "title": "Dispatch by Region",
+          "description": "Cumulative jobs dispatched per region",
+          "type": "piechart",
+          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 30},
+          "targets": [{"expr": "gpu_lotto_jobs_dispatched_total", "legendFormat": "{{`{{region}}`}}", "instant": true}],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic-by-name"}
+            },
+            "overrides": [
+              {"matcher": {"id": "byName", "options": "us-east-1"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#FF9830"}}]},
+              {"matcher": {"id": "byName", "options": "us-east-2"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#73BF69"}}]},
+              {"matcher": {"id": "byName", "options": "us-west-2"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#B877D9"}}]}
+            ]
+          },
+          "options": {"legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "tooltip": {"mode": "single"}, "pieType": "donut", "reduceOptions": {"calcs": ["lastNotNull"]}}
+        },
+        {
+          "title": "Region Capacity (Available Slots)",
+          "description": "Real-time GPU capacity per region from Redis",
+          "type": "bargauge",
+          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 30},
+          "targets": [{"expr": "gpu_lotto_region_capacity", "legendFormat": "{{`{{region}}`}}", "instant": true}],
+          "fieldConfig": {
+            "defaults": {
+              "min": 0, "max": 16,
+              "thresholds": {"steps": [{"color": "red", "value": null}, {"color": "orange", "value": 4}, {"color": "yellow", "value": 8}, {"color": "green", "value": 12}]},
+              "color": {"mode": "thresholds"}
+            }
+          },
+          "options": {"orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true, "minVizWidth": 8, "minVizHeight": 16}
+        },
+        {
+          "title": "Dispatch Rate by Region",
+          "description": "Jobs dispatched per minute, broken down by region",
+          "type": "timeseries",
+          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 30},
+          "targets": [{"expr": "rate(gpu_lotto_jobs_dispatched_total[5m]) * 60", "legendFormat": "{{`{{region}}`}}"}],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "opm",
+              "custom": {"lineWidth": 2, "fillOpacity": 20, "gradientMode": "scheme", "lineInterpolation": "smooth", "stacking": {"mode": "normal"}},
+              "color": {"mode": "palette-classic-by-name"}
+            },
+            "overrides": [
+              {"matcher": {"id": "byName", "options": "us-east-1"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#FF9830"}}]},
+              {"matcher": {"id": "byName", "options": "us-east-2"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#73BF69"}}]},
+              {"matcher": {"id": "byName", "options": "us-west-2"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "#B877D9"}}]}
+            ]
+          },
+          "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["sum"]}, "tooltip": {"mode": "multi", "sort": "desc"}}
+        },
 
         {
           "type": "row",

@@ -143,33 +143,46 @@ echo -e "  ${C}                   │${RESET}  Seoul Control Plane ${C}│${RESE
 echo -e "  ${C}                   └────────────────────┘${RESET}"
 echo
 
-# Fetch prices with spinner
+# Fetch prices and capacity with spinner
 curl -s "$API/prices" > /tmp/gpu_prices.json &
 spinner $! "Fetching live prices from AWS EC2 API"
+curl -s "$API/admin/regions" > /tmp/gpu_capacity.json &
+spinner $! "Fetching region capacity"
 echo
 
 PRICES_RAW=$(cat /tmp/gpu_prices.json)
+CAPACITY_RAW=$(cat /tmp/gpu_capacity.json)
 if echo "$PRICES_RAW" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
 
-  echo -e "  ${W}${BOLD}  LIVE SPOT PRICES                                                  ${RESET}"
+  echo -e "  ${W}${BOLD}  LIVE SPOT PRICES (g6.xlarge)                                       ${RESET}"
   echo -e "  ${D}  ──────────────────────────────────────────────────────────────────${RESET}"
   echo
 
-  # Show prices with animated reveal
-  echo "$PRICES_RAW" | python3 -c "
+  # Show g6.xlarge prices with capacity info
+  python3 -c "
 import sys, json, time
-data = json.load(sys.stdin)
-prices = sorted(data.get('prices', []), key=lambda x: x['price'])
-cheapest = prices[0]['price'] if prices else 0
+prices = json.load(open('/tmp/gpu_prices.json')).get('prices', [])
+cap_data = json.load(open('/tmp/gpu_capacity.json')).get('regions', [])
+cap_map = {r['region']: r['available_capacity'] for r in cap_data}
+
+g6 = sorted([p for p in prices if p['instance_type'] == 'g6.xlarge'], key=lambda x: x['price'])
+cheapest_avail = None
+for p in g6:
+    if cap_map.get(p['region'], 0) > 0:
+        cheapest_avail = p['price']
+        break
+
 region_colors = {'us-east-1': '\033[0;33m', 'us-east-2': '\033[0;36m', 'us-west-2': '\033[0;35m'}
 
-print('  \033[1;37m  %-14s  %-13s  %-10s  %s\033[0m' % ('REGION', 'INSTANCE', 'PRICE/HR', ''))
-print('  \033[0;90m  %-14s  %-13s  %-10s  %s\033[0m' % ('-'*14, '-'*13, '-'*10, '-'*20))
+print('  \033[1;37m  %-14s  %-13s  %-10s  %-10s  %s\033[0m' % ('REGION', 'INSTANCE', 'PRICE/HR', 'CAPACITY', ''))
+print('  \033[0;90m  %-14s  %-13s  %-10s  %-10s  %s\033[0m' % ('-'*14, '-'*13, '-'*10, '-'*10, '-'*16))
 
-for i, p in enumerate(prices):
+for p in g6:
     r, t, pr = p['region'], p['instance_type'], p['price']
     rc = region_colors.get(r, '\033[0m')
-    is_best = (pr == cheapest)
+    cap = cap_map.get(r, 0)
+    cap_str = f'{cap} slots' if cap > 0 else '\033[0;31mFULL\033[0m'
+    is_best = (cheapest_avail is not None and pr == cheapest_avail)
 
     bar_len = int(min(pr / 6.0, 1.0) * 20)
     bar = '#' * bar_len + '.' * (20 - bar_len)
@@ -177,19 +190,29 @@ for i, p in enumerate(prices):
     if is_best:
         marker = '\033[42m\033[1;37m BEST \033[0m'
         price_c = '\033[1;32m'
+    elif cap == 0:
+        marker = '\033[41m\033[1;37m FULL \033[0m'
+        price_c = '\033[0;90m'
     else:
         marker = '     '
         price_c = '\033[0m'
 
-    print(f'  {rc}  {r:<14}\033[0m  {t:<13}  {price_c}\${pr:<9.4f}\033[0m  \033[0;32m{bar}\033[0m {marker}')
-    time.sleep(0.08)
+    print(f'  {rc}  {r:<14}\033[0m  {t:<13}  {price_c}\${pr:<9.4f}\033[0m  {cap_str:<19}  \033[0;32m{bar}\033[0m {marker}')
+    time.sleep(0.15)
 "
 
-  CHEAPEST=$(echo "$PRICES_RAW" | python3 -c "
-import sys, json
-prices = json.load(sys.stdin).get('prices', [])
-best = min(prices, key=lambda x: x['price'])
-print(f\"{best['region']}|{best['price']:.4f}|{best['instance_type']}\")
+  # Select cheapest region WITH available capacity (mirrors Dispatcher logic)
+  CHEAPEST=$(python3 -c "
+import json
+prices = json.load(open('/tmp/gpu_prices.json')).get('prices', [])
+cap_data = json.load(open('/tmp/gpu_capacity.json')).get('regions', [])
+cap_map = {r['region']: r['available_capacity'] for r in cap_data}
+g6 = sorted([p for p in prices if p['instance_type'] == 'g6.xlarge'], key=lambda x: x['price'])
+best = next((p for p in g6 if cap_map.get(p['region'], 0) > 0), g6[0] if g6 else None)
+if best:
+    print(f\"{best['region']}|{best['price']:.4f}|{best['instance_type']}\")
+else:
+    print('us-east-1|0.0000|g6.xlarge')
 ")
   CHEAPEST_REGION=$(echo "$CHEAPEST" | cut -d'|' -f1)
   CHEAPEST_PRICE=$(echo "$CHEAPEST" | cut -d'|' -f2)
@@ -273,32 +296,53 @@ echo -e "  ${BG_M}${W}${BOLD}  STEP 3 / 5  ${RESET}  ${W}${BOLD}Dispatcher 자�
 hr "=" "$M"
 echo
 
-echo -e "  ${D}Dispatcher evaluates prices and selects optimal region...${RESET}"
+echo -e "  ${D}Dispatcher evaluates prices ${W}and capacity${D} to select optimal region...${RESET}"
 echo
 echo -e "  ${Y}              ┌──────────────┐${RESET}"
 echo -e "  ${Y}              │  ${W}DISPATCHER${RESET}  ${Y}│${RESET}"
 echo -e "  ${Y}              │${RESET}  Queue → Pod  ${Y}│${RESET}"
 echo -e "  ${Y}              └──────┬───────┘${RESET}"
-echo -e "  ${Y}                     │ ${D}price comparison${RESET}"
+echo -e "  ${Y}                     │ ${D}price + capacity${RESET}"
 echo -e "  ${Y}           ┌─────────┼──────────┐${RESET}"
 echo -e "  ${Y}           V         V          V${RESET}"
 
 sleep 0.5
 
-# Animated region evaluation
+# Animated region evaluation — real prices + capacity (mirrors Dispatcher)
 REGIONS=("us-east-1" "us-east-2" "us-west-2")
-PRICES_DEMO=("0.3005" "0.1999" "0.3511")
+eval "$(python3 -c "
+import json
+prices = json.load(open('/tmp/gpu_prices.json')).get('prices', [])
+cap_data = json.load(open('/tmp/gpu_capacity.json')).get('regions', [])
+cap_map = {r['region']: r['available_capacity'] for r in cap_data}
+by_region = {}
+for p in prices:
+    if p['instance_type'] == 'g6.xlarge':
+        by_region[p['region']] = p['price']
+price_list = []
+cap_list = []
+for r in ['us-east-1', 'us-east-2', 'us-west-2']:
+    price_list.append(f'{by_region.get(r, 0.0):.4f}')
+    cap_list.append(str(cap_map.get(r, 0)))
+print(f'PRICES_DEMO=({\" \".join(price_list)})')
+print(f'CAPS_DEMO=({\" \".join(cap_list)})')
+")"
+[ ${#PRICES_DEMO[@]} -lt 3 ] && PRICES_DEMO=("0.0000" "0.0000" "0.0000")
+[ ${#CAPS_DEMO[@]} -lt 3 ] && CAPS_DEMO=("0" "0" "0")
 RESULTS=("" "" "")
 
 for idx in 0 1 2; do
   sleep 0.8
   reg=${REGIONS[$idx]}
   price=${PRICES_DEMO[$idx]}
+  cap=${CAPS_DEMO[$idx]}
 
   if [ "$reg" == "$CHEAPEST_REGION" ]; then
-    RESULTS[$idx]="${BG_G}${W}${BOLD} * ${reg}  \$${price}/hr  SELECTED ${RESET}"
+    RESULTS[$idx]="${BG_G}${W}${BOLD} * ${reg}  \$${price}/hr  cap:${cap}  SELECTED ${RESET}"
+  elif [ "$cap" == "0" ]; then
+    RESULTS[$idx]="  ${D} x ${reg}  \$${price}/hr  ${RESET}${R}cap:0 (FULL)${RESET}"
   else
-    RESULTS[$idx]="  ${D} ○ ${reg}  \$${price}/hr ${RESET}"
+    RESULTS[$idx]="  ${D} o ${reg}  \$${price}/hr  cap:${cap} ${RESET}"
   fi
 done
 

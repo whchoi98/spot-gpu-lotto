@@ -165,7 +165,7 @@ echo
 
 JOB_PAYLOAD='{
   "image": "nvidia/cuda:12.2.0-runtime-ubuntu22.04",
-  "command": ["/bin/sh", "-c", "echo Starting training... && nvidia-smi && epoch=0; while [ $epoch -lt 100 ]; do echo Epoch $epoch/100 - training...; sleep 3; if [ $((epoch % 10)) -eq 0 ]; then echo '  >> Checkpoint saved: epoch_'$epoch'.pt'; fi; epoch=$((epoch+1)); done; echo Training complete!"],
+  "command": ["/bin/sh", "-c", "echo Starting training... && nvidia-smi && epoch=0; while [ $epoch -lt 100 ]; do echo Epoch $epoch/100 - training...; sleep 3; if [ $((epoch % 10)) -eq 0 ]; then echo [checkpoint] epoch_${epoch}.pt saved; fi; epoch=$((epoch+1)); done; echo Training complete!"],
   "instance_type": "g5.xlarge",
   "gpu_type": "A10G",
   "gpu_count": 1,

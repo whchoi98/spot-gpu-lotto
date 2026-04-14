@@ -8,7 +8,9 @@ import redis.asyncio as aioredis
 from common.config import get_settings
 from common.k8s_client import get_k8s_client, invalidate_client
 from common.logging import get_logger
-from common.metrics import JOBS_DISPATCHED, JOBS_FAILED, JOBS_RETRIED, QUEUE_DEPTH
+from common.metrics import (
+    JOBS_DISPATCHED, JOBS_FAILED, JOBS_RETRIED, QUEUE_DEPTH, REGION_CAPACITY,
+)
 from common.models import JobStatus
 from dispatcher.notifier import notify_job_status
 from dispatcher.pod_builder import build_gpu_pod
@@ -89,6 +91,9 @@ async def process_queue(r: aioredis.Redis) -> None:
     while True:
         queue_len = await r.llen("gpu:job:queue")
         QUEUE_DEPTH.set(queue_len)
+        for region in settings.regions:
+            cap = await r.get(f"gpu:capacity:{region}")
+            REGION_CAPACITY.labels(region=region).set(int(cap) if cap else 0)
         item = await r.brpop("gpu:job:queue", timeout=5)
         if item:
             _, job_json = item

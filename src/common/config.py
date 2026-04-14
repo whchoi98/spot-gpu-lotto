@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     k8s_mode: str = "live"       # "live" or "dry-run"
     price_mode: str = "live"     # "live" or "mock"
 
+    # Storage
+    s3_bucket: str = "gpu-lotto-dev-data"
+
     # Agent
     dispatch_mode: str = "rule"  # "rule" or "agent"
     agent_model: str = "global.anthropic.claude-sonnet-4-6"

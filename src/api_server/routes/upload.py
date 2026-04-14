@@ -45,7 +45,7 @@ async def presign_upload(
     s3 = boto3.client("s3")
     key = f"{req.prefix}/{user.user_id}/{safe_filename}"
     presigned = s3.generate_presigned_post(
-        Bucket=settings.s3_bucket if hasattr(settings, "s3_bucket") else "gpu-lotto-data",
+        Bucket=settings.s3_bucket,
         Key=key,
         ExpiresIn=3600,
     )

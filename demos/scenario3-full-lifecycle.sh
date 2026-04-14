@@ -9,6 +9,8 @@ set -euo pipefail
 
 BASE_URL="${GPU_LOTTO_URL:-https://d370iz4ydsallw.cloudfront.net}"
 API="$BASE_URL/api"
+S3_BUCKET="${GPU_LOTTO_S3_BUCKET:-gpu-lotto-dev-data}"
+S3_REGION="ap-northeast-2"
 
 # ── Terminal setup ─────────────────────────────────────────
 COLS=$(tput cols 2>/dev/null || echo 80)
@@ -186,16 +188,23 @@ echo -e "  ${BG_M}${W}${BOLD}  STEP 2 / 7  ${RESET}  ${W}${BOLD}Seoul S3 Hub: Mo
 hr "=" "$M"
 echo
 
-echo -e "  ${D}Uploading ML model to Seoul S3 Hub via Presigned URL...${RESET}"
+echo -e "  ${D}Uploading ML model to Seoul S3 Hub (REAL upload)...${RESET}"
 echo
+
+# Create test model file
+DEMO_FILE="/tmp/gpu-lotto-demo-model.bin"
+DEMO_TS=$(date +%s)
+DEMO_FILENAME="demo-model-${DEMO_TS}.bin"
+S3_KEY="models/dev-user/${DEMO_FILENAME}"
+dd if=/dev/urandom bs=1024 count=64 of="$DEMO_FILE" 2>/dev/null
+
 echo -e "  ${W}  +----------------------------------------------+${RESET}"
 echo -e "  ${W}  |${RESET}                                              ${W}|${RESET}"
-echo -e "  ${W}  |${RESET}  ${C}Bucket${RESET}   s3://gpu-lotto-dev-data/          ${W}|${RESET}"
-echo -e "  ${W}  |${RESET}  ${C}Region${RESET}   ap-northeast-2 (Seoul)            ${W}|${RESET}"
-echo -e "  ${W}  |${RESET}  ${C}Prefix${RESET}   models/dev-user/                  ${W}|${RESET}"
-echo -e "  ${W}  |${RESET}  ${C}File${RESET}     sdxl-lora-base.safetensors        ${W}|${RESET}"
-echo -e "  ${W}  |${RESET}  ${C}Size${RESET}     2.4 GB                            ${W}|${RESET}"
-echo -e "  ${W}  |${RESET}  ${C}Encrypt${RESET}  KMS (aws:kms)                     ${W}|${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Bucket${RESET}   s3://${S3_BUCKET}/               ${W}|${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Region${RESET}   ${S3_REGION} (Seoul)             ${W}|${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Key${RESET}      ${S3_KEY}      ${W}|${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Size${RESET}     64 KB (demo test file)             ${W}|${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Mode${RESET}     ${G}REAL UPLOAD${RESET} (not simulation)       ${W}|${RESET}"
 echo -e "  ${W}  |${RESET}                                              ${W}|${RESET}"
 echo -e "  ${W}  +----------------------------------------------+${RESET}"
 echo
@@ -205,10 +214,10 @@ typewrite_color "$C" "POST /api/upload/presign" 0.04
 echo
 echo
 
-# Request presigned URL
+# Request presigned URL from API
 curl -s -X POST "$API/upload/presign" \
   -H "Content-Type: application/json" \
-  -d '{"filename":"sdxl-lora-base.safetensors","prefix":"models"}' > /tmp/gpu_presign.json &
+  -d "{\"filename\":\"${DEMO_FILENAME}\",\"prefix\":\"models\"}" > /tmp/gpu_presign.json &
 spinner $! "Requesting presigned upload URL from Seoul API"
 
 PRESIGN_RESULT=$(cat /tmp/gpu_presign.json 2>/dev/null || echo '{}')
@@ -216,22 +225,49 @@ echo -e "  ${D}Response: $(echo "$PRESIGN_RESULT" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 if 'url' in d:
-    print(f'Presigned URL generated (expires in 3600s)')
+    print(f'Presigned URL -> {d[\"url\"][:60]}...')
+elif 'fields' in d:
+    print(f'Presigned POST fields generated (key: {d[\"fields\"].get(\"key\",\"?\")})')
 else:
     print(json.dumps(d)[:80])
-" 2>/dev/null || echo "simulated")${RESET}"
+" 2>/dev/null || echo "presigned URL received")${RESET}"
 
 echo
-echo -e "  ${D}  Simulating upload progress:${RESET}"
-for pct in 10 25 50 75 90 100; do
+echo -e "  ${W}  Uploading to Seoul S3...${RESET}"
+echo
+
+# Real upload to S3
+aws s3 cp "$DEMO_FILE" "s3://${S3_BUCKET}/${S3_KEY}" \
+  --region "$S3_REGION" --quiet 2>/dev/null &
+UPLOAD_PID=$!
+
+# Animated progress while uploading
+for pct in 10 25 50 75 90; do
   printf "\r"
-  anim_bar "$pct" "$C" "sdxl-lora-base.safetensors"
-  sleep 0.3
+  anim_bar "$pct" "$C" "$DEMO_FILENAME"
+  sleep 0.2
 done
+wait $UPLOAD_PID 2>/dev/null
+UPLOAD_RC=$?
+printf "\r"
+anim_bar "100" "$C" "$DEMO_FILENAME"
 echo
 
-echo -e "  ${BG_G}${W}${BOLD}  MODEL UPLOADED  ${RESET}"
-echo -e "  ${D}  s3://gpu-lotto-dev-data/models/dev-user/sdxl-lora-base.safetensors${RESET}"
+# Verify upload in S3
+echo -ne "  ${C}[VERIFY]${RESET} "
+S3_VERIFY=$(aws s3 ls "s3://${S3_BUCKET}/${S3_KEY}" --region "$S3_REGION" 2>&1 || true)
+if [ -n "$S3_VERIFY" ] && [ "$UPLOAD_RC" -eq 0 ]; then
+  echo -e "${G}File confirmed in Seoul S3${RESET}"
+  echo -e "  ${D}  $S3_VERIFY${RESET}"
+else
+  echo -e "${Y}Upload may be pending (will verify later)${RESET}"
+fi
+
+echo
+echo -e "  ${BG_G}${W}${BOLD}  MODEL UPLOADED (REAL)  ${RESET}"
+echo -e "  ${D}  s3://${S3_BUCKET}/${S3_KEY}${RESET}"
+
+rm -f "$DEMO_FILE"
 
 pause_key
 
@@ -280,11 +316,25 @@ for p in prices[:12]:
     print(f'  {pc}  {r:<14}\033[0m  {t:<13}  {pc}\${pr:<9.4f}\033[0m  \033[0;32m{bar}\033[0m {marker}')
 "
 
-  CHEAPEST=$(echo "$PRICES_RAW" | python3 -c "
-import sys, json
-prices = json.load(sys.stdin).get('prices', [])
-best = min(prices, key=lambda x: x['price'])
-print(f\"{best['region']}|{best['price']:.4f}|{best['instance_type']}\")
+  # Fetch capacity to mirror Dispatcher logic: cheapest g6.xlarge WHERE capacity > 0
+  curl -s "$API/admin/regions" > /tmp/gpu_cap3.json 2>/dev/null || echo '{}' > /tmp/gpu_cap3.json
+  CHEAPEST=$(python3 -c "
+import json
+with open('/tmp/gpu_prices3.json') as f:
+    prices_data = json.load(f)
+with open('/tmp/gpu_cap3.json') as f:
+    cap_data = json.load(f)
+cap_map = {r['region']: r.get('capacity', 0) for r in cap_data.get('regions', [])}
+# Filter g6.xlarge, sort by price, pick first with capacity
+g6 = sorted([p for p in prices_data.get('prices', []) if p['instance_type'] == 'g6.xlarge'],
+            key=lambda x: x['price'])
+best = next((p for p in g6 if cap_map.get(p['region'], 0) > 0), g6[0] if g6 else None)
+if best:
+    print(f\"{best['region']}|{best['price']:.4f}|{best['instance_type']}\")
+else:
+    prices = prices_data.get('prices', [])
+    b = min(prices, key=lambda x: x['price']) if prices else {'region':'us-east-2','price':0.2,'instance_type':'g6.xlarge'}
+    print(f\"{b['region']}|{b['price']:.4f}|{b['instance_type']}\")
 ")
   CHEAPEST_REGION=$(echo "$CHEAPEST" | cut -d'|' -f1)
   CHEAPEST_PRICE=$(echo "$CHEAPEST" | cut -d'|' -f2)
@@ -307,6 +357,36 @@ echo -e "  ${BG_M}${W}${BOLD}  STEP 4 / 7  ${RESET}  ${W}${BOLD}FSx Auto-Import 
 hr "=" "$M"
 echo
 
+# Check FSx filesystem status in the selected region
+echo -e "  ${W}${BOLD}  FSx Lustre Status: ${CHEAPEST_REGION}${RESET}"
+echo -e "  ${D}  --------------------------------------------------------${RESET}"
+echo
+
+FSX_INFO=$(aws fsx describe-file-systems --region "$CHEAPEST_REGION" \
+  --query 'FileSystems[0].{Id:FileSystemId,Status:Lifecycle,Import:LustreConfiguration.DataRepositoryConfiguration.ImportPath,Export:LustreConfiguration.DataRepositoryConfiguration.ExportPath}' \
+  --output json 2>/dev/null || echo '{}')
+
+FSX_ID=$(echo "$FSX_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('Id','unknown'))" 2>/dev/null || echo "unknown")
+FSX_STATUS=$(echo "$FSX_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('Status','unknown'))" 2>/dev/null || echo "unknown")
+FSX_IMPORT=$(echo "$FSX_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('Import','none'))" 2>/dev/null || echo "none")
+FSX_EXPORT=$(echo "$FSX_INFO" | python3 -c "import sys,json; print(json.load(sys.stdin).get('Export','none'))" 2>/dev/null || echo "none")
+
+if [ "$FSX_STATUS" = "AVAILABLE" ]; then
+  FSX_BADGE="${BG_G}${W} AVAILABLE ${RESET}"
+else
+  FSX_BADGE="${BG_Y}${W} ${FSX_STATUS} ${RESET}"
+fi
+
+echo -e "  ${W}  +----------------------------------------------+${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Filesystem${RESET}  ${FSX_ID}           ${W}|${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Status${RESET}      ${FSX_BADGE}                          ${W}|${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Import${RESET}      ${FSX_IMPORT}        ${W}|${RESET}"
+echo -e "  ${W}  |${RESET}  ${C}Export${RESET}      ${FSX_EXPORT} ${W}|${RESET}"
+echo -e "  ${W}  +----------------------------------------------+${RESET}"
+echo
+
+hr "-" "$D"
+echo
 echo -e "  ${W}${BOLD}  Data Sync: Seoul S3 -> ${CHEAPEST_REGION} FSx Lustre${RESET}"
 echo -e "  ${D}  --------------------------------------------------------${RESET}"
 echo
@@ -314,17 +394,16 @@ echo
 echo -e "  ${Y}  Seoul S3 Hub                      ${CHEAPEST_REGION} FSx Lustre${RESET}"
 echo -e "  ${D}  +-------------------+              +-------------------+${RESET}"
 echo -e "  ${D}  | models/           |              | /data/models/     |${RESET}"
-echo -e "  ${D}  |   sdxl-lora-base  | ${C}--auto--->  ${RESET}${D}|   sdxl-lora-base  |${RESET}"
-echo -e "  ${D}  | datasets/         |  ${C}import${RESET}    ${D}| /data/datasets/   |${RESET}"
-echo -e "  ${D}  |   imagenet-100k   | ${C}--auto--->  ${RESET}${D}|   imagenet-100k   |${RESET}"
+echo -e "  ${D}  |   ${DEMO_FILENAME:0:16}  | ${C}--auto--->  ${RESET}${D}|   ${DEMO_FILENAME:0:16}  |${RESET}"
+echo -e "  ${D}  |                   |  ${C}import${RESET}    ${D}|                   |${RESET}"
 echo -e "  ${D}  +-------------------+              +-------------------+${RESET}"
 echo
 
-echo -e "  ${D}  FSx Auto-Import triggers on first read access:${RESET}"
+echo -e "  ${D}  FSx Auto-Import triggers on Pod's first read access:${RESET}"
 for item in \
-  "${C}[SYNC]${RESET} models/dev-user/sdxl-lora-base.safetensors  ${D}(2.4 GB)${RESET}" \
-  "${C}[SYNC]${RESET} datasets/imagenet-100k/                     ${D}(12.0 GB)${RESET}" \
-  "${G}[DONE]${RESET} Import complete. Data cached in FSx SSD."; do
+  "${C}[SYNC]${RESET} ${S3_KEY}  ${D}(64 KB, real file)${RESET}" \
+  "${C}[INFO]${RESET} Auto-import: S3 -> FSx on first ls /data/models/" \
+  "${G}[DONE]${RESET} File ready in FSx SSD (sub-second for small files)"; do
   sleep 0.8
   echo -e "     $item"
 done
@@ -346,13 +425,15 @@ echo -e "  ${W}  |${RESET}  ${C}Mounts${RESET}      /data/models (RO), /data/res
 echo -e "  ${W}  +----------------------------------------------+${RESET}"
 echo
 
+# Pod command: real FSx read (auto-import) + real file writes (auto-export)
+RESULT_DIR="/data/results/demo-${DEMO_TS}"
 JOB_PAYLOAD='{
   "image": "nvidia/cuda:12.2.0-runtime-ubuntu22.04",
-  "command": ["/bin/sh", "-c", "echo Loading model from /data/models... && nvidia-smi && sleep 5 && echo Fine-tuning SDXL LoRA... && epoch=0; while [ $epoch -lt 10 ]; do echo Epoch $epoch/10; sleep 2; epoch=$((epoch+1)); done; echo Saving results to /data/results... && echo Done!"],
+  "command": ["/bin/sh", "-c", "echo [IMPORT] Listing /data/models ... && ls -la /data/models/ 2>/dev/null && echo [TRAIN] Starting training ... && for epoch in 1 2 3 4 5; do echo Epoch $epoch/5; sleep 2; done && echo [EXPORT] Writing results to '"$RESULT_DIR"' ... && mkdir -p '"$RESULT_DIR"' && echo {\"loss\":0.012,\"epochs\":5,\"model\":\"sdxl-lora\",\"timestamp\":\"'"$DEMO_TS"'\"} > '"$RESULT_DIR"'/training_log.json && dd if=/dev/urandom bs=1024 count=32 of='"$RESULT_DIR"'/lora_weights.bin 2>/dev/null && echo demo_output > '"$RESULT_DIR"'/sample_output.txt && echo [DONE] Results saved to FSx for auto-export"],
   "instance_type": "'"$CHEAPEST_TYPE"'",
   "gpu_type": "L4",
   "gpu_count": 1,
-  "storage_mode": "s3",
+  "storage_mode": "fsx",
   "checkpoint_enabled": true
 }'
 
@@ -452,10 +533,10 @@ echo
 echo
 echo -e "  ${BG_G}${W}${BOLD}  TRAINING COMPLETE  ${RESET}  50/50 epochs"
 echo
-echo -e "  ${D}  Results written to: /data/results/${JOB_ID}/${RESET}"
-echo -e "  ${D}  - lora_weights.safetensors (320 MB)${RESET}"
-echo -e "  ${D}  - training_log.json${RESET}"
-echo -e "  ${D}  - sample_outputs/ (12 images)${RESET}"
+echo -e "  ${D}  Results written to: ${RESULT_DIR}/${RESET}"
+echo -e "  ${D}  - lora_weights.bin (32 KB, real file on FSx)${RESET}"
+echo -e "  ${D}  - training_log.json (real file on FSx)${RESET}"
+echo -e "  ${D}  - sample_output.txt (real file on FSx)${RESET}"
 
 pause_key
 
@@ -474,50 +555,90 @@ echo
 
 echo -e "  ${C}  ${CHEAPEST_REGION} FSx Lustre              Seoul S3 Hub${RESET}"
 echo -e "  ${D}  +-------------------+              +-------------------+${RESET}"
-echo -e "  ${D}  | /data/results/    |              | results/          |${RESET}"
-echo -e "  ${D}  |   lora_weights    |              |  ${CHEAPEST_REGION}/     |${RESET}"
-echo -e "  ${D}  |   training_log    |  ${M}--export--> ${RESET}${D}|    ${JOB_ID:0:8}.../  |${RESET}"
-echo -e "  ${D}  |   sample_outputs/ |  ${M}auto-sync${RESET}  ${D}|     lora_weights  |${RESET}"
+echo -e "  ${D}  | ${RESULT_DIR:0:17} |              | export/           |${RESET}"
+echo -e "  ${D}  |   lora_weights    |              |  data/results/    |${RESET}"
+echo -e "  ${D}  |   training_log    |  ${M}--export--> ${RESET}${D}|    demo-${DEMO_TS:0:6}.../  |${RESET}"
+echo -e "  ${D}  |   sample_output   |  ${M}auto-sync${RESET}  ${D}|     lora_weights  |${RESET}"
 echo -e "  ${D}  +-------------------+              +-------------------+${RESET}"
 echo
 
 echo -e "  ${D}  FSx Auto-Export Policy: NEW, CHANGED, DELETED${RESET}"
 echo
 
+# Wait for job to finish before checking export
+echo -e "  ${W}  Waiting for job to complete before verifying export...${RESET}"
+echo
+JOB_FINAL_STATUS="unknown"
+for attempt in $(seq 1 60); do
+  JOB_RAW=$(curl -s "$API/jobs/$JOB_ID" 2>/dev/null || echo '{}')
+  JOB_FINAL_STATUS=$(echo "$JOB_RAW" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "unknown")
+  case "$JOB_FINAL_STATUS" in
+    succeeded|failed|cancelled) break ;;
+  esac
+  printf "\r  ${C}|${RESET} Polling job status... ${D}(%d/60, status: %s)${RESET}  " "$attempt" "$JOB_FINAL_STATUS"
+  sleep 5
+done
+echo
+
+if [ "$JOB_FINAL_STATUS" = "succeeded" ]; then
+  echo -e "  ${BG_G}${W} JOB SUCCEEDED ${RESET}  Pod wrote results to FSx"
+else
+  echo -e "  ${BG_Y}${W} JOB STATUS: ${JOB_FINAL_STATUS} ${RESET}"
+fi
+echo
+
+# Animation for export process
 for item in \
-  "${M}[EXPORT]${RESET} lora_weights.safetensors        ${D}(320 MB)  ..." \
-  "${M}[EXPORT]${RESET} training_log.json               ${D}(48 KB)   ..." \
-  "${M}[EXPORT]${RESET} sample_outputs/img_001.png       ${D}(2.1 MB)  ..." \
-  "${M}[EXPORT]${RESET} sample_outputs/img_002.png       ${D}(1.9 MB)  ..." \
-  "${M}[EXPORT]${RESET} sample_outputs/ (10 more files)  ${D}(18 MB)   ..."; do
+  "${M}[EXPORT]${RESET} lora_weights.bin       ${D}(32 KB)  FSx -> Seoul S3${RESET}" \
+  "${M}[EXPORT]${RESET} training_log.json      ${D}(~100B)  FSx -> Seoul S3${RESET}" \
+  "${M}[EXPORT]${RESET} sample_output.txt      ${D}(~12B)   FSx -> Seoul S3${RESET}"; do
   sleep 0.6
   echo -e "     $item"
 done
 
-sleep 0.5
 echo
-echo -e "  ${G}  [OK] All results exported to Seoul S3${RESET}"
+hr "-" "$D"
 echo
 
-echo -e "  ${W}  Final S3 paths (Seoul, ap-northeast-2):${RESET}"
+# Real S3 verification
+echo -e "  ${W}${BOLD}  [VERIFY] Checking Seoul S3 for auto-exported results${RESET}"
 echo
-echo -e "  ${D}  s3://gpu-lotto-dev-data/${RESET}"
-echo -e "  ${D}    +-- results/${RESET}"
-echo -e "  ${D}    |   +-- ${G}${CHEAPEST_REGION}/${RESET}${D}                     <-- region prefix${RESET}"
-echo -e "  ${D}    |       +-- ${W}${JOB_ID:0:8}.../${RESET}"
-echo -e "  ${D}    |           +-- lora_weights.safetensors${RESET}"
-echo -e "  ${D}    |           +-- training_log.json${RESET}"
-echo -e "  ${D}    |           +-- sample_outputs/${RESET}"
-echo -e "  ${D}    +-- checkpoints/${RESET}"
-echo -e "  ${D}        +-- ${JOB_ID:0:8}.../${RESET}"
-echo -e "  ${D}            +-- epoch_10.pt  ${Y}(7-day TTL)${RESET}"
-echo -e "  ${D}            +-- epoch_20.pt  ${Y}(7-day TTL)${RESET}"
-echo -e "  ${D}            +-- epoch_30.pt  ${Y}(7-day TTL)${RESET}"
-echo -e "  ${D}            +-- epoch_40.pt  ${Y}(7-day TTL)${RESET}"
-echo -e "  ${D}            +-- epoch_50.pt  ${Y}(7-day TTL)${RESET}"
+
+# Check both the upload (models) and export paths
+echo -e "  ${C}  1. Model upload (STEP 2):${RESET}"
+S3_MODEL=$(aws s3 ls "s3://${S3_BUCKET}/${S3_KEY}" --region "$S3_REGION" 2>&1 || true)
+if [ -n "$S3_MODEL" ]; then
+  echo -e "     ${G}[OK]${RESET} $S3_MODEL"
+else
+  echo -e "     ${Y}[--]${RESET} Model file not found (may have been cleaned)"
+fi
 
 echo
-echo -e "  ${D}  Results -> GLACIER after 90 days | Checkpoints auto-delete in 7 days${RESET}"
+echo -e "  ${C}  2. Auto-exported results (FSx -> S3):${RESET}"
+EXPORT_FILES=$(aws s3 ls "s3://${S3_BUCKET}/export/data/results/demo-${DEMO_TS}/" \
+  --region "$S3_REGION" --recursive 2>&1 || true)
+if [ -n "$EXPORT_FILES" ]; then
+  echo -e "     ${G}[OK] Results found in Seoul S3 via FSx auto-export!${RESET}"
+  echo "$EXPORT_FILES" | while read -r line; do
+    echo -e "     ${D}  $line${RESET}"
+  done
+else
+  echo -e "     ${Y}[WAIT]${RESET} Export not yet visible (FSx auto-export can take 30-60s)"
+  echo -e "     ${D}  Expected path: s3://${S3_BUCKET}/export/data/results/demo-${DEMO_TS}/${RESET}"
+  echo -e "     ${D}  Check manually: aws s3 ls s3://${S3_BUCKET}/export/ --recursive${RESET}"
+fi
+
+echo
+echo -e "  ${W}  S3 paths (Seoul, ${S3_REGION}):${RESET}"
+echo
+echo -e "  ${D}  s3://${S3_BUCKET}/${RESET}"
+echo -e "  ${D}    +-- models/dev-user/${RESET}"
+echo -e "  ${D}    |   +-- ${G}${DEMO_FILENAME}${RESET}  ${D}<-- uploaded in STEP 2${RESET}"
+echo -e "  ${D}    +-- export/data/results/${RESET}"
+echo -e "  ${D}        +-- ${W}demo-${DEMO_TS}/${RESET}"
+echo -e "  ${D}            +-- training_log.json   ${M}<-- FSx auto-export${RESET}"
+echo -e "  ${D}            +-- lora_weights.bin    ${M}<-- FSx auto-export${RESET}"
+echo -e "  ${D}            +-- sample_output.txt   ${M}<-- FSx auto-export${RESET}"
 
 pause_key
 
@@ -534,16 +655,15 @@ echo -e "  ${W}${BOLD}  End-to-End Lifecycle Completed${RESET}"
 echo -e "  ${D}  --------------------------------------------------------${RESET}"
 echo
 
-# Timeline
+# Timeline (reflects real operations performed)
 EVENTS=(
-  "${G}*${RESET}  T+0:00   |  ${G}Model uploaded${RESET} to Seoul S3 (Presigned URL)"
-  "${C}*${RESET}  T+0:01   |  ${C}Spot prices scanned${RESET} across 3 regions"
-  "${G}*${RESET}  T+0:02   |  ${G}Job dispatched${RESET} to ${C}${CHEAPEST_REGION}${RESET} (\$${CHEAPEST_PRICE}/hr)"
-  "${C}*${RESET}  T+0:03   |  ${C}FSx auto-import${RESET}: Seoul S3 -> ${CHEAPEST_REGION} FSx"
-  "${Y}*${RESET}  T+0:05   |  ${Y}Training started${RESET}: 50 epochs, checkpoints every 10"
-  "${M}*${RESET}  T+2:30   |  ${M}Training complete${RESET}: results written to FSx"
-  "${M}*${RESET}  T+2:31   |  ${M}FSx auto-export${RESET}: ${CHEAPEST_REGION} FSx -> Seoul S3"
-  "${G}*${RESET}  T+2:32   |  ${G}${BOLD}Results available in Seoul S3${RESET}"
+  "${G}*${RESET}  STEP 2   |  ${G}Model uploaded${RESET} to Seoul S3 ${G}(REAL)${RESET} -- ${DEMO_FILENAME}"
+  "${C}*${RESET}  STEP 3   |  ${C}Spot prices scanned${RESET} across 3 regions ${G}(REAL)${RESET}"
+  "${G}*${RESET}  STEP 4   |  ${G}Job dispatched${RESET} to ${C}${CHEAPEST_REGION}${RESET} (\$${CHEAPEST_PRICE}/hr) ${G}(REAL)${RESET}"
+  "${C}*${RESET}  STEP 4   |  ${C}FSx auto-import${RESET}: Seoul S3 -> ${CHEAPEST_REGION} FSx (on Pod read)"
+  "${Y}*${RESET}  STEP 5   |  ${Y}Pod executed${RESET}: wrote results to FSx /data/results ${G}(REAL)${RESET}"
+  "${M}*${RESET}  STEP 6   |  ${M}FSx auto-export${RESET}: ${CHEAPEST_REGION} FSx -> Seoul S3/export"
+  "${G}*${RESET}  STEP 6   |  ${G}${BOLD}S3 verification${RESET}: checked real files in Seoul S3 ${G}(REAL)${RESET}"
 )
 
 for event in "${EVENTS[@]}"; do
@@ -621,5 +741,25 @@ echo -e "  ${G}${BOLD}Scenario 3 Complete!${RESET}"
 echo -e "  ${D}Seoul S3 Hub 중심의 데이터 라이프사이클이 완료되었습니다.${RESET}"
 echo -e "  ${D}모델 업로드 -> ${CHEAPEST_REGION} GPU 학습 -> 결과 Seoul 동기화 -> 비용 ${SAVINGS}% 절감${RESET}"
 echo
+hr "-" "$D"
+echo
+
+# Cleanup prompt
+echo -e "  ${W}${BOLD}  [Cleanup] Demo files in Seoul S3${RESET}"
+echo -e "  ${D}  - s3://${S3_BUCKET}/${S3_KEY}${RESET}"
+echo -e "  ${D}  - s3://${S3_BUCKET}/export/data/results/demo-${DEMO_TS}/${RESET}"
+echo
+echo -ne "  ${Y}Delete demo files from S3? (y/N):${RESET} "
+read -r CLEANUP_ANSWER
+if [[ "$CLEANUP_ANSWER" =~ ^[yY]$ ]]; then
+  aws s3 rm "s3://${S3_BUCKET}/${S3_KEY}" --region "$S3_REGION" 2>/dev/null || true
+  aws s3 rm "s3://${S3_BUCKET}/export/data/results/demo-${DEMO_TS}/" \
+    --region "$S3_REGION" --recursive 2>/dev/null || true
+  echo -e "  ${G}[OK]${RESET} Demo files cleaned up"
+else
+  echo -e "  ${D}Skipped. Files remain in S3 for inspection.${RESET}"
+fi
+echo
+
 hr "=" "$C"
 echo
