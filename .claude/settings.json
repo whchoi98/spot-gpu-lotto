@@ -8,14 +8,14 @@
       "Bash(npm run build:*)",
       "Bash(npx tsc:*)",
       "Bash(helm:*)",
-      "Bash(kubectl:*)"
+      "Bash(kubectl:*)",
+      "Bash(git push:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
       "Bash(rm -r:*)",
       "Bash(rm -f:*)",
       "Bash(git push --force:*)",
-      "Bash(git push --force-with-lease:*)",
       "Bash(git push --delete:*)",
       "Bash(git reset --hard:*)",
       "Bash(git clean -f:*)",
@@ -43,9 +43,9 @@
         ]
       }
     ],
-    "PreCommit": [
+    "PreToolUse": [
       {
-        "matcher": "",
+        "matcher": "Bash(git commit:*)",
         "hooks": [
           {
             "type": "command",

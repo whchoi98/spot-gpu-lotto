@@ -50,9 +50,10 @@ async def get_current_user(request: Request) -> CurrentUser:
     try:
         payload = _decode_jwt_payload(token)
         user_id = payload.get("sub", "")
-        role = payload.get("custom:role", "user")
         if not user_id:
             raise ValueError("Missing sub claim")
+        raw_role = payload.get("custom:role", "user")
+        role = raw_role if raw_role in ("admin", "user") else "user"
         return CurrentUser(user_id=user_id, role=role)
     except Exception as e:
         log.warning("auth_failed", error=str(e))

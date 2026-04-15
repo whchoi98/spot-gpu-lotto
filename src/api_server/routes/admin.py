@@ -49,8 +49,14 @@ async def force_retry_job(
     if not data:
         raise HTTPException(status_code=404, detail="Job not found")
     await r.hset(f"gpu:jobs:{job_id}", "status", JobStatus.QUEUED)
-    # Re-queue the job
-    await r.lpush("gpu:job:queue", json.dumps(data))
+    # Re-queue only the original JobRequest fields (not stale runtime state)
+    job_request = {
+        "user_id": data.get("user_id") or "anonymous",
+        "instance_type": data.get("instance_type") or "g6.xlarge",
+        "checkpoint_enabled": data.get("checkpoint_enabled", "false").lower() == "true",
+        "webhook_url": data.get("webhook_url") or None,
+    }
+    await r.lpush("gpu:job:queue", json.dumps(job_request))
     return {"status": "queued", "job_id": job_id}
 
 
