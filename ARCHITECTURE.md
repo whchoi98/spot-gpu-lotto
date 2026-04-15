@@ -231,12 +231,12 @@ limits: 16 GPUs total
 | `karpenter` | NodePool (GPU Spot), EC2NodeClass (Bottlerocket) |
 | `elasticache` | Redis 7 with TLS, multi-AZ, auto-failover |
 | `cognito` | User Pool, App Client, OAuth config |
-| `alb` | ALB (internet-facing), target groups (IP mode), listener rules |
+| `alb` | ALB (internet-facing), target groups (IP mode), listener rules. TargetGroupBinding + AWS LB Controller auto-syncs Pod IPs |
 | `cloudfront` | CloudFront distribution + WAF, caching policies |
 | `ecr` | 4 repositories (immutable tags) |
 | `fsx` | FSx Lustre per spot region, S3 auto-import/export |
 | `s3` | Hub bucket (versioning, encryption, lifecycle) |
-| `pod_identity` | EKS Pod Identity / IRSA roles |
+| `pod_identity` | EKS Pod Identity roles (api-server, dispatcher, price-watcher, gpu-worker, lb-controller) |
 | `github_oidc` | GitHub Actions OIDC for CI/CD |
 | `monitoring` | Prometheus + Grafana stack |
 

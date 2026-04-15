@@ -16,10 +16,13 @@ Manages api-server, dispatcher, price-watcher, frontend, and monitoring stack.
 - `templates/price-watcher/` -- Deployment, SA
 - `templates/frontend/` -- Deployment, Service
 - `templates/monitoring/` -- ServiceMonitor for Prometheus
+- `templates/targetgroupbinding.yaml` -- TargetGroupBinding CRDs (auto-sync Pod IPs to ALB)
 
 ## Rules
 - Image tags are immutable in ECR -- always increment version
 - `values-dev.yaml` overrides `global.image.tag` for all backend services
 - Frontend has its own `frontend.image.tag` (separate build pipeline)
 - ConfigMap changes require `kubectl rollout restart` to take effect
-- ALB uses IP target type -- Pod IP must be re-registered after restart
+- ALB target registration is automatic via TargetGroupBinding + AWS LB Controller
+- TargetGroupBinding uses `elbv2.k8s.aws/v1beta1` API (AWS LB Controller)
+- AWS LB Controller installed via Helm (kube-system), uses Pod Identity for IAM

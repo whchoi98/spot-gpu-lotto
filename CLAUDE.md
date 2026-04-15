@@ -78,7 +78,7 @@ docs/             - Architecture, ADRs, runbooks, specs/plans
 - agent_model: LLM model for agent (default: `global.anthropic.claude-sonnet-4-6`)
 - Images: build with `docker buildx --platform linux/arm64` (dev host + EKS nodes are ARM Graviton)
 - ECR tags: immutable -- increment version on each push (v9, v10, ...)
-- ALB: IP target type -- must re-register Pod IP after restart
+- ALB: IP target type -- Pod IPs auto-synced via TargetGroupBinding + AWS LB Controller (Pod Identity)
 
 ## Key Commands
 

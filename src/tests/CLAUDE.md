@@ -20,6 +20,9 @@ and testcontainers for integration tests.
 - `test_reaper.py` -- Job reaper logic
 - `test_region_selector.py` -- Cheapest region selection
 - `test_agent_config.py` -- Agent config (dispatch_mode, agent_model, api_server_url)
+- `test_queue_processor.py` -- Dispatch loop, retry/fail, dry-run/live modes
+- `test_tools_jobs.py` -- Agent job tools (httpx → API Server)
+- `test_tools_infra.py` -- Agent infra tools (boto3/kubernetes)
 
 ## Integration Tests
 - `test_api_admin.py` -- Admin API endpoints
