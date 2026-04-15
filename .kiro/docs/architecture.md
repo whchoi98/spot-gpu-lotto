@@ -10,7 +10,6 @@ User -> CloudFront -> ALB -> API Server -> Redis (prices + queue + jobs)
 
 User (NL) -> AgentCore Runtime (us-east-1) -> Strands Agent -> API Server (httpx)
                                                             -> AWS APIs (boto3/k8s)
-External Agent -> AgentCore Gateway (MCP) -> API Server
 ```
 
 ## Hub-and-Spoke Storage
@@ -27,7 +26,7 @@ FSx PV manifests use `envsubst` for per-region filesystem IDs.
 ## Components
 
 ### API Server (FastAPI)
-- 19 REST endpoints: jobs, prices, admin, templates, upload, agent/chat, health, metrics
+- 20 REST endpoints: jobs, prices, admin, templates, upload, agent/chat, health, metrics
 - `POST /api/agent/chat`: Bedrock Converse with Redis context injection, hybrid approval model
 - Cognito JWT auth (prod) / disabled (dev)
 - SSE streaming for real-time job status
@@ -45,8 +44,6 @@ FSx PV manifests use `envsubst` for per-region filesystem IDs.
 - Full tool-use agent on AgentCore Runtime (us-east-1)
 - `tools_jobs.py`: httpx → API Server (no direct Redis — solves VPC access issue)
 - `tools_infra.py`: boto3/kubernetes → AWS APIs directly (EKS, ElastiCache, Cost Explorer)
-- AgentCore Gateway exposes REST API as MCP tools for external agents
-
 ### Dispatcher
 - BRPOP loop consuming from Redis job queue
 - Region selector: cheapest-first with capacity check

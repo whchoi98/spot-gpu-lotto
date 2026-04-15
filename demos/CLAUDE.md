@@ -5,10 +5,12 @@ Interactive bash demo scripts that showcase GPU Spot Lotto features.
 Each script calls real API endpoints and displays animated terminal UI.
 
 ## Scripts
+- `launcher.sh` -- Interactive menu to select and run any demo (system status bar, color-coded menu)
 - `scenario1-cost-optimized.sh` -- 5 steps: spot price scan, job submit, auto-dispatch, cost analysis, monitoring
 - `scenario2-spot-recovery.sh` -- 6 steps: checkpoint job, training, spot interruption, auto-recovery, resume, cost
 - `scenario3-full-lifecycle.sh` -- 7 steps: architecture, S3 upload, price scan, FSx import, training, export, summary
-- `scenario4-ai-agent.sh` -- 6 steps: architecture comparison, agent price query, failure analysis, smart dispatch, MCP Gateway, summary
+- `scenario4-ai-agent.sh` -- 6 steps: architecture comparison, agent price query, failure analysis, smart dispatch, tool architecture, summary
+- `watch-gpu-pods.sh` -- Real-time multi-region GPU pod monitor (3 spot regions, color-coded, auto-refresh)
 
 ## Rules
 - All scripts use ASCII-only characters (no Unicode symbols -- `tr` breaks multi-byte chars)
@@ -18,4 +20,4 @@ Each script calls real API endpoints and displays animated terminal UI.
 - `POST /api/jobs` returns no job_id -- must poll `GET /api/admin/jobs` to discover new job
 - `GPU_LOTTO_URL` env var overrides default CloudFront URL
 - `AGENTCORE_CMD` env var overrides default `.venv/bin/agentcore` for scenario4
-- scenario4 uses AgentCore Runtime (agentcore invoke) and MCP Gateway
+- scenario4 uses AgentCore Runtime (agentcore invoke) with httpx→API Server tools

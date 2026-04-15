@@ -41,7 +41,6 @@
 | ECR | Container image registry |
 | Grafana + Prometheus | Monitoring dashboards (Helm-provisioned) |
 | AgentCore Runtime | Serverless Strands agent hosting (us-east-1) |
-| AgentCore Gateway | REST→MCP bridge for external agents |
 
 ## Testing
 | Tool | Purpose |

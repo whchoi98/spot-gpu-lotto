@@ -21,26 +21,16 @@
 
 GPU Spot Lotto is a system that monitors GPU Spot instance prices across multiple AWS regions in real time and dispatches workloads to the cheapest available region. The Seoul (ap-northeast-2) control plane orchestrates GPU jobs across three US spot regions (us-east-1, us-east-2, us-west-2) using a Hub-and-Spoke data architecture with Seoul S3 as the central hub and FSx Lustre for per-region auto-sync.
 
-```
-User -> CloudFront -> ALB -> API Server -> Redis (price DB + job queue)
-                                               |
-                              Dispatcher (dequeue -> cheapest region EKS)
-                                               |
-                              Price Watcher (60s polling, EC2 Spot Price API)
+### Architecture
 
-User (natural language) -> AgentCore Runtime -> Strands AI Agent -> API (via tools)
-Web Chat -> API Server -> Bedrock Converse API (streaming)
-```
+<p align="center">
+  <img src="screenshot/architecture.png" alt="GPU Spot Lotto Architecture" width="100%" />
+</p>
 
-### Hub-and-Spoke Storage
-
-```
-               Seoul S3 Hub (models, datasets, checkpoints, results)
-                  /              |              \
-        FSx Lustre          FSx Lustre        FSx Lustre
-       (us-east-1)         (us-east-2)       (us-west-2)
-     auto-import/export   auto-import/export  auto-import/export
-```
+- **Control Plane (ap-northeast-2)**: CloudFront + ALB + EKS AutoMode (API Server, Dispatcher, Price Watcher, Frontend)
+- **Spot Regions (us-east-1, us-east-2, us-west-2)**: EKS AutoMode with Karpenter GPU Spot nodes + FSx Lustre (S3 Cache)
+- **AI Agent**: AgentCore Runtime + Strands Agent + Bedrock Sonnet 4.6
+- **Data**: Seoul S3 Hub with FSx Lustre auto-sync per spot region
 
 ## Features
 
@@ -108,7 +98,15 @@ terraform init
 terraform plan
 terraform apply
 
-# Deploy Helm chart
+# Install AWS Load Balancer Controller (auto-syncs Pod IPs to ALB targets)
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  --namespace kube-system \
+  --set clusterName=gpu-lotto-dev-seoul \
+  --set region=ap-northeast-2 \
+  --set vpcId=<vpc-id> \
+  --set serviceAccount.name=aws-load-balancer-controller
+
+# Deploy Helm chart (includes TargetGroupBinding for ALB auto-sync)
 helm upgrade --install gpu-lotto helm/gpu-lotto \
   -n gpu-lotto --create-namespace \
   -f helm/gpu-lotto/values-dev.yaml
@@ -177,14 +175,14 @@ bash scenario4-ai-agent.sh
 aws ecr get-login-password --region ap-northeast-2 | \
   docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com
 
-# Build and push backend (ARM host -> AMD64 target)
-docker buildx build --builder amd64builder --platform linux/amd64 \
+# Build and push backend (--target required for multi-stage Dockerfile)
+docker buildx build --builder amd64builder --platform linux/arm64 --target api-server \
   -t <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/gpu-lotto/api-server:v10 --push .
 
 # Build and push frontend
 cd frontend
 npm run build
-docker buildx build --builder amd64builder --platform linux/amd64 \
+docker buildx build --builder amd64builder --platform linux/arm64 \
   -f Dockerfile.prod \
   -t <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/gpu-lotto/frontend:v7 --push .
 
@@ -234,7 +232,7 @@ gpu-spot-lotto/
 │   ├── price_watcher/       # EC2 Spot price collector (60s polling)
 │   ├── agent/               # Strands AI agent (AgentCore Runtime)
 │   └── tests/               # pytest suite (unit + integration)
-│       ├── unit/            # 10 test modules (fakeredis, no external deps)
+│       ├── unit/            # 13 test modules (fakeredis, no external deps)
 │       └── integration/     # 5 test modules (testcontainers Redis)
 ├── frontend/                # React 18 + Vite + shadcn/ui SPA
 │   ├── src/pages/           # Dashboard, Jobs, Prices, Admin, Agent, Guide
@@ -242,7 +240,7 @@ gpu-spot-lotto/
 │   ├── src/hooks/           # TanStack Query hooks
 │   └── src/lib/             # API client, types, i18n (ko/en)
 ├── helm/gpu-lotto/          # Helm 3 chart
-│   └── templates/           # api-server, dispatcher, price-watcher, frontend
+│   └── templates/           # api-server, dispatcher, price-watcher, frontend, targetgroupbinding
 ├── terraform/               # 13 IaC modules
 │   ├── modules/             # vpc, eks, karpenter, elasticache, cognito, ...
 │   └── envs/                # dev (Seoul), prod
@@ -293,7 +291,7 @@ cd frontend && npx tsc --noEmit
 
 | Category | Modules | Description |
 |----------|---------|-------------|
-| Unit | auth, capacity, collector, config, models, notifier, pod_builder, reaper, region_selector, agent_config | Core logic tests with fakeredis |
+| Unit | auth, capacity, collector, config, models, notifier, pod_builder, reaper, region_selector, agent_config, queue_processor, tools_jobs, tools_infra | Core logic tests with fakeredis |
 | Integration | api_admin, api_health, api_jobs, api_prices, api_templates | Full API endpoint tests with real Redis |
 
 ## API Documentation
@@ -382,26 +380,16 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 GPU Spot Lotto는 여러 AWS 리전의 GPU Spot 인스턴스 가격을 실시간으로 모니터링하고, 가장 저렴한 리전에 워크로드를 자동 배치하는 시스템입니다. 서울(ap-northeast-2) 컨트롤 플레인이 3개 미국 Spot 리전(us-east-1, us-east-2, us-west-2)의 GPU 작업을 관리하며, 서울 S3를 중앙 허브로 하는 Hub-and-Spoke 데이터 아키텍처를 사용합니다. 각 Spot 리전에는 FSx Lustre가 자동 동기화를 수행합니다.
 
-```
-사용자 -> CloudFront -> ALB -> API 서버 -> Redis (가격 DB + 작업 큐)
-                                              |
-                             디스패처 (큐 소비 -> 최저가 리전 EKS 배치)
-                                              |
-                             프라이스 워처 (60초 주기, EC2 Spot 가격 API)
+### 아키텍처
 
-사용자 (자연어) -> AgentCore Runtime -> Strands AI 에이전트 -> API (도구 호출)
-웹 채팅 -> API 서버 -> Bedrock Converse API (스트리밍)
-```
+<p align="center">
+  <img src="screenshot/architecture.png" alt="GPU Spot Lotto 아키텍처" width="100%" />
+</p>
 
-### Hub-and-Spoke 스토리지
-
-```
-              서울 S3 허브 (모델, 데이터셋, 체크포인트, 결과물)
-                  /              |              \
-        FSx Lustre          FSx Lustre        FSx Lustre
-       (us-east-1)         (us-east-2)       (us-west-2)
-     자동 가져오기/내보내기  자동 가져오기/내보내기  자동 가져오기/내보내기
-```
+- **컨트롤 플레인 (ap-northeast-2)**: CloudFront + ALB + EKS AutoMode (API Server, Dispatcher, Price Watcher, Frontend)
+- **Spot 리전 (us-east-1, us-east-2, us-west-2)**: EKS AutoMode + Karpenter GPU Spot 노드 + FSx Lustre (S3 Cache)
+- **AI 에이전트**: AgentCore Runtime + Strands Agent + Bedrock Sonnet 4.6
+- **데이터**: 서울 S3 허브 + 리전별 FSx Lustre 자동 동기화
 
 ## 주요 기능
 
@@ -469,7 +457,15 @@ terraform init
 terraform plan
 terraform apply
 
-# Helm 차트 배포
+# AWS Load Balancer Controller 설치 (Pod IP → ALB 타겟 자동 동기화)
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  --namespace kube-system \
+  --set clusterName=gpu-lotto-dev-seoul \
+  --set region=ap-northeast-2 \
+  --set vpcId=<vpc-id> \
+  --set serviceAccount.name=aws-load-balancer-controller
+
+# Helm 차트 배포 (TargetGroupBinding 포함, ALB 자동 동기화)
 helm upgrade --install gpu-lotto helm/gpu-lotto \
   -n gpu-lotto --create-namespace \
   -f helm/gpu-lotto/values-dev.yaml
@@ -538,14 +534,14 @@ bash scenario4-ai-agent.sh
 aws ecr get-login-password --region ap-northeast-2 | \
   docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com
 
-# 백엔드 빌드 및 푸시 (ARM 호스트 -> AMD64 타겟)
-docker buildx build --builder amd64builder --platform linux/amd64 \
+# 백엔드 빌드 및 푸시 (--target 필수: multi-stage Dockerfile)
+docker buildx build --builder amd64builder --platform linux/arm64 --target api-server \
   -t <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/gpu-lotto/api-server:v10 --push .
 
 # 프론트엔드 빌드 및 푸시
 cd frontend
 npm run build
-docker buildx build --builder amd64builder --platform linux/amd64 \
+docker buildx build --builder amd64builder --platform linux/arm64 \
   -f Dockerfile.prod \
   -t <account-id>.dkr.ecr.ap-northeast-2.amazonaws.com/gpu-lotto/frontend:v7 --push .
 
@@ -595,7 +591,7 @@ gpu-spot-lotto/
 │   ├── price_watcher/       # EC2 Spot 가격 수집기 (60초 주기)
 │   ├── agent/               # Strands AI 에이전트 (AgentCore Runtime)
 │   └── tests/               # pytest 테스트 (단위 + 통합)
-│       ├── unit/            # 10개 테스트 모듈 (fakeredis, 외부 의존성 없음)
+│       ├── unit/            # 13개 테스트 모듈 (fakeredis, 외부 의존성 없음)
 │       └── integration/     # 5개 테스트 모듈 (testcontainers Redis)
 ├── frontend/                # React 18 + Vite + shadcn/ui SPA
 │   ├── src/pages/           # 대시보드, 작업, 가격, 관리자, AI 에이전트, 가이드
@@ -603,7 +599,7 @@ gpu-spot-lotto/
 │   ├── src/hooks/           # TanStack Query 훅
 │   └── src/lib/             # API 클라이언트, 타입, i18n (한/영)
 ├── helm/gpu-lotto/          # Helm 3 차트
-│   └── templates/           # api-server, dispatcher, price-watcher, frontend
+│   └── templates/           # api-server, dispatcher, price-watcher, frontend, targetgroupbinding
 ├── terraform/               # 13개 IaC 모듈
 │   ├── modules/             # vpc, eks, karpenter, elasticache, cognito 등
 │   └── envs/                # dev (서울), prod
@@ -654,7 +650,7 @@ cd frontend && npx tsc --noEmit
 
 | 카테고리 | 모듈 | 설명 |
 |----------|------|------|
-| 단위 | auth, capacity, collector, config, models, notifier, pod_builder, reaper, region_selector, agent_config | fakeredis를 사용한 핵심 로직 테스트 |
+| 단위 | auth, capacity, collector, config, models, notifier, pod_builder, reaper, region_selector, agent_config, queue_processor, tools_jobs, tools_infra | fakeredis를 사용한 핵심 로직 테스트 |
 | 통합 | api_admin, api_health, api_jobs, api_prices, api_templates | 실제 Redis를 사용한 전체 API 엔드포인트 테스트 |
 
 ## API 문서
@@ -736,7 +732,7 @@ cd frontend && npx tsc --noEmit
 - 이슈: GitHub Issues 탭에서 버그 보고 또는 기능 요청을 제출하십시오.
 
 <!-- harness-eval-badge:start -->
-![Harness Score](https://img.shields.io/badge/harness-6.7%2F10-orange)
-![Harness Grade](https://img.shields.io/badge/grade-C-orange)
-![Last Eval](https://img.shields.io/badge/eval-2026--04--12-blue)
+![Harness Score](https://img.shields.io/badge/harness-7.2%2F10-yellow)
+![Harness Grade](https://img.shields.io/badge/grade-B-yellow)
+![Last Eval](https://img.shields.io/badge/eval-2026--04--15-blue)
 <!-- harness-eval-badge:end -->
