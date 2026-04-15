@@ -36,6 +36,9 @@ Auth: Cognito JWT in prod, hardcoded `dev-user/admin` when `AUTH_ENABLED=false`.
 ### Agent (`routes/agent.py`, prefix `/api/agent`)
 - `POST /api/agent/chat` -- AI chat (Bedrock Converse API + Redis context, hybrid approval model)
 
+### Auth (`main.py`)
+- `GET /api/me` -- Current user info (from ALB JWT or dev fallback)
+
 ### Health (`routes/health.py`)
 - `GET /healthz` -- Liveness probe
 - `GET /readyz` -- Readiness probe (checks Redis)
@@ -44,7 +47,7 @@ Auth: Cognito JWT in prod, hardcoded `dev-user/admin` when `AUTH_ENABLED=false`.
 - `GET /metrics` -- Prometheus metrics export
 
 ## Key Files
-- `main.py` -- FastAPI app, CORS, router registration, `/metrics` endpoint
+- `main.py` -- FastAPI app, CORS, router registration, `/api/me`, `/metrics`
 - `auth.py` -- JWT validation, `get_current_user` / `require_admin` dependencies
 - `routes/jobs.py` -- Job CRUD + SSE streaming
 - `routes/prices.py` -- Price query endpoints

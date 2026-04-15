@@ -8,12 +8,19 @@ import type {
   PriceEntry,
   RegionInfo,
   TemplateEntry,
+  UserInfo,
 } from "./types";
 
 const api = axios.create({
   baseURL: "/api",
   headers: { "Content-Type": "application/json" },
 });
+
+// --- Auth ---
+export async function fetchMe(): Promise<UserInfo> {
+  const { data } = await api.get<UserInfo>("/me");
+  return data;
+}
 
 // --- Prices ---
 export async function fetchPrices(instanceType?: string): Promise<PriceEntry[]> {

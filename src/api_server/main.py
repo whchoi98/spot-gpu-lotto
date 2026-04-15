@@ -1,10 +1,11 @@
 """FastAPI application setup."""
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.responses import PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from api_server.auth import CurrentUser, get_current_user
 from api_server.routes.admin import router as admin_router
 from api_server.routes.agent import router as agent_router
 from api_server.routes.health import router as health_router
@@ -35,6 +36,12 @@ app.include_router(upload_router)
 app.include_router(templates_router)
 app.include_router(admin_router)
 app.include_router(agent_router)
+
+
+@app.get("/api/me")
+async def get_me(user: CurrentUser = Depends(get_current_user)):
+    """Return current user info (from ALB JWT or dev fallback)."""
+    return {"user_id": user.user_id, "role": user.role}
 
 
 @app.get("/metrics")

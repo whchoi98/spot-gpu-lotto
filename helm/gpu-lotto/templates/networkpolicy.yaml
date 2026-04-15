@@ -14,7 +14,10 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - ports:
+    - from:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.vpcCIDR | default "10.0.0.0/16" | quote }}
+      ports:
         - port: {{ .Values.apiServer.port }}
           protocol: TCP
   egress:

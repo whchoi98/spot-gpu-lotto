@@ -1,6 +1,7 @@
+import { useState, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { AuthContext } from "@/hooks/useAuth";
-import { getUserFromToken } from "@/lib/auth";
+import { fetchMe } from "@/lib/api";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Prices from "@/pages/Prices";
 import Jobs from "@/pages/Jobs";
@@ -14,10 +15,19 @@ import Agent from "@/pages/Agent";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminJobs from "@/pages/admin/AdminJobs";
 import AdminRegions from "@/pages/admin/AdminRegions";
-
-const user = getUserFromToken();
+import type { UserInfo } from "@/lib/types";
 
 export default function App() {
+  const [user, setUser] = useState<UserInfo | null>(null);
+
+  useEffect(() => {
+    fetchMe()
+      .then(setUser)
+      .catch(() => setUser({ user_id: "anonymous", role: "user" }));
+  }, []);
+
+  if (!user) return null;
+
   return (
     <AuthContext.Provider value={user}>
       <Routes>

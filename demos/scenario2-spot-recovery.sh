@@ -178,16 +178,35 @@ typewrite_color "$C" "Submitting job with checkpoint_enabled: true ..." 0.04
 echo
 echo
 
+# Snapshot existing job IDs before submission
+BEFORE_IDS=$(curl -s "$API/admin/jobs" | python3 -c "
+import sys, json
+jobs = json.load(sys.stdin).get('jobs', [])
+print(' '.join(j['job_id'] for j in jobs))
+" 2>/dev/null || echo "")
+
 curl -s -X POST "$API/jobs" \
   -H "Content-Type: application/json" \
   -d "$JOB_PAYLOAD" > /tmp/gpu_job_result2.json &
 spinner $! "POST /api/jobs"
 
-JOB_ID=$(cat /tmp/gpu_job_result2.json | python3 -c "
+# Wait for dispatcher to process and find the new job_id
+JOB_ID=""
+for attempt in $(seq 1 10); do
+  sleep 2
+  JOB_ID=$(curl -s "$API/admin/jobs" | python3 -c "
 import sys, json
-d = json.load(sys.stdin)
-print(d.get('job_id', d.get('message', 'unknown')))
-" 2>/dev/null || echo "demo-$(date +%s)")
+before = set('${BEFORE_IDS}'.split())
+jobs = json.load(sys.stdin).get('jobs', [])
+new = [j for j in jobs if j['job_id'] not in before]
+if new:
+    best = max(new, key=lambda j: j.get('created_at', '0'))
+    print(best['job_id'])
+" 2>/dev/null || echo "")
+  [ -n "$JOB_ID" ] && break
+  printf "\r  ${C}|${RESET} Waiting for dispatcher... (%d/10)" "$attempt"
+done
+[ -z "$JOB_ID" ] && JOB_ID="demo-$(date +%s)"
 
 echo
 echo -e "  ${BG_G}${W}  JOB SUBMITTED  ${RESET}"
@@ -232,7 +251,11 @@ echo
 echo
 
 if [ "$info_region" == "-" ]; then
-  info_region="us-east-1"
+  # Fallback: query admin/jobs for the region
+  info_region=$(curl -s "$API/jobs/$JOB_ID" 2>/dev/null | python3 -c "
+import sys, json
+print(json.load(sys.stdin).get('region', 'us-east-1'))
+" 2>/dev/null || echo "us-east-1")
 fi
 INITIAL_REGION="$info_region"
 
@@ -343,12 +366,33 @@ echo -e "  ${BG_M}${W}${BOLD}  STEP 4 / 6  ${RESET}  ${W}${BOLD}자동 복구 �
 hr "=" "$M"
 echo
 
-# Pick a different region for demo
-case "$INITIAL_REGION" in
-  us-east-1) RECOVERY_REGION="us-east-2"   ;;
-  us-east-2) RECOVERY_REGION="us-west-2"   ;;
-  *)         RECOVERY_REGION="us-east-2"   ;;
-esac
+# Fetch live prices and pick cheapest non-interrupted region
+PRICE_JSON=$(curl -s "$API/prices?instance_type=g5.xlarge" 2>/dev/null || echo '{"prices":[]}')
+
+REGIONS=("us-east-1" "us-east-2" "us-west-2")
+declare -A PRICE_MAP
+for reg in "${REGIONS[@]}"; do
+  p=$(echo "$PRICE_JSON" | python3 -c "
+import sys, json
+prices = json.load(sys.stdin).get('prices', [])
+match = [p for p in prices if p['region'] == '${reg}']
+print(f\"{match[0]['price']:.4f}\" if match else '0.0000')
+" 2>/dev/null || echo "0.0000")
+  PRICE_MAP[$reg]="$p"
+done
+
+# Find cheapest available region (excluding interrupted)
+RECOVERY_REGION=""
+RECOVERY_PRICE="99.9999"
+for reg in "${REGIONS[@]}"; do
+  [ "$reg" == "$INITIAL_REGION" ] && continue
+  p="${PRICE_MAP[$reg]}"
+  if [ "$(echo "$p < $RECOVERY_PRICE" | bc -l 2>/dev/null || echo 0)" == "1" ]; then
+    RECOVERY_REGION="$reg"
+    RECOVERY_PRICE="$p"
+  fi
+done
+[ -z "$RECOVERY_REGION" ] && RECOVERY_REGION="us-east-2" && RECOVERY_PRICE="0.2650"
 
 echo -e "  ${Y}              ┌──────────────────┐${RESET}"
 echo -e "  ${Y}              │${RESET}  ${W}AUTO-RECOVERY${RESET}    ${Y}│${RESET}"
@@ -366,22 +410,12 @@ echo
 
 sleep 1
 
-# Animated region evaluation
-REGIONS=("us-east-1" "us-east-2" "us-west-2")
-PRICES_DEMO=("0.3100" "0.2650" "0.2900")
-LABELS=("INTERRUPTED" "AVAILABLE" "AVAILABLE")
-COLORS=("$R" "$G" "$C")
-
 echo -e "  ${W}${BOLD}  REGION           PRICE/HR    STATUS               ${RESET}"
 echo -e "  ${D}  ─────────────    ─────────   ──────────────────── ${RESET}"
 
-for idx in 0 1 2; do
+for reg in "${REGIONS[@]}"; do
   sleep 0.6
-  reg=${REGIONS[$idx]}
-  price=${PRICES_DEMO[$idx]}
-  label=${LABELS[$idx]}
-  color=${COLORS[$idx]}
-
+  price="${PRICE_MAP[$reg]}"
   if [ "$reg" == "$INITIAL_REGION" ]; then
     echo -e "  ${R}  ${reg}      \$${price}     ${BG_R}${W} INTERRUPTED ${RESET}"
   elif [ "$reg" == "$RECOVERY_REGION" ]; then
@@ -395,7 +429,7 @@ echo
 sleep 1
 
 echo -ne "  "
-typewrite_color "$G" ">>> Re-dispatching to ${RECOVERY_REGION} (\$0.2650/hr)" 0.04
+typewrite_color "$G" ">>> Re-dispatching to ${RECOVERY_REGION} (\$${RECOVERY_PRICE}/hr)" 0.04
 echo
 echo
 
@@ -478,7 +512,7 @@ EVENTS=(
   "${Y}*${RESET}  T+1:33   │  ${Y}Emergency checkpoint save initiated${RESET}"
   "${Y}*${RESET}  T+1:35   │  ${Y}Instance terminated. Status → cancelled${RESET}"
   "${C}*${RESET}  T+1:36   │  ${C}Dispatcher detects failure, scans prices${RESET}"
-  "${G}*${RESET}  T+1:37   │  ${G}Job requeued → ${RECOVERY_REGION}${RESET} (\$0.265/hr)"
+  "${G}*${RESET}  T+1:37   │  ${G}Job requeued → ${RECOVERY_REGION}${RESET} (\$${RECOVERY_PRICE}/hr)"
   "${G}*${RESET}  T+1:40   │  ${G}Pod scheduled, loading epoch_30.pt${RESET}"
   "${G}*${RESET}  T+1:42   │  ${G}Training resumed from epoch 30${RESET}"
   "${G}*${RESET}  T+4:30   │  ${G}${BOLD}Training complete! [OK]${RESET}"
