@@ -76,7 +76,7 @@ docs/             - Architecture, ADRs, runbooks, specs/plans
 - k8s_mode: "live" in dev and prod (real GPU clusters)
 - dispatch_mode: "rule" (default) or "agent" (AI-based dispatch via Strands agent)
 - agent_model: LLM model for agent (default: `global.anthropic.claude-sonnet-4-6`)
-- Images: cross-compile with `docker buildx --platform linux/amd64` (dev host is ARM Graviton)
+- Images: build with `docker buildx --platform linux/arm64` (dev host + EKS nodes are ARM Graviton)
 - ECR tags: immutable -- increment version on each push (v9, v10, ...)
 - ALB: IP target type -- must re-register Pod IP after restart
 
@@ -119,12 +119,12 @@ agentcore invoke --payload '{"prompt": "Find the cheapest p4d.24xlarge spot inst
 
 ### Docker & Deploy
 ```bash
-# Build backend (from project root)
-docker buildx build --builder amd64builder --platform linux/amd64 \
+# Build backend (from project root, --target required for multi-stage Dockerfile)
+docker buildx build --builder amd64builder --platform linux/arm64 --target <service> \
   -t 660619595884.dkr.ecr.ap-northeast-2.amazonaws.com/gpu-lotto/<service>:<tag> --push .
 
 # Build frontend (from frontend/)
-docker buildx build --builder amd64builder --platform linux/amd64 \
+docker buildx build --builder amd64builder --platform linux/arm64 \
   -f Dockerfile.prod -t 660619595884.dkr.ecr.ap-northeast-2.amazonaws.com/gpu-lotto/frontend:<tag> --push .
 
 # Helm deploy

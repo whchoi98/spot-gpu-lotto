@@ -4,7 +4,7 @@
 global:
   image:
     registry: ""  # set via CI: 123456789.dkr.ecr.ap-northeast-2.amazonaws.com
-    tag: "v16-arm64"
+    tag: "v19-arm64"
 
 config:
   redisUrl: ""  # set via CI: rediss://master.<cluster>.cache.amazonaws.com:6379
