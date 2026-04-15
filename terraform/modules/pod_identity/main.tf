@@ -210,3 +210,145 @@ resource "aws_eks_pod_identity_association" "gpu_worker" {
   service_account = "gpu-worker"
   role_arn        = aws_iam_role.gpu_worker.arn
 }
+
+# ============================================================
+# AWS Load Balancer Controller Role (Seoul control plane only)
+# ============================================================
+resource "aws_iam_role" "lb_controller" {
+  count              = var.enable_lb_controller ? 1 : 0
+  name               = "${var.cluster_name}-lb-controller"
+  assume_role_policy = data.aws_iam_policy_document.pod_identity_trust.json
+}
+
+data "aws_iam_policy_document" "lb_controller" {
+  count = var.enable_lb_controller ? 1 : 0
+
+  statement {
+    sid = "ELBManagement"
+    actions = [
+      "elasticloadbalancing:DescribeTargetGroups",
+      "elasticloadbalancing:DescribeTargetHealth",
+      "elasticloadbalancing:RegisterTargets",
+      "elasticloadbalancing:DeregisterTargets",
+      "elasticloadbalancing:DescribeLoadBalancers",
+      "elasticloadbalancing:DescribeListeners",
+      "elasticloadbalancing:DescribeRules",
+      "elasticloadbalancing:DescribeTags",
+      "elasticloadbalancing:DescribeListenerCertificates",
+      "elasticloadbalancing:ModifyTargetGroup",
+      "elasticloadbalancing:ModifyTargetGroupAttributes",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "EC2Describe"
+    actions = [
+      "ec2:DescribeVpcs",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeSecurityGroups",
+      "ec2:DescribeInstances",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:DescribeAvailabilityZones",
+      "ec2:DescribeInternetGateways",
+      "ec2:DescribeAccountAttributes",
+      "ec2:DescribeCoipPools",
+      "ec2:GetCoipPoolUsage",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "EC2SecurityGroupManagement"
+    actions = [
+      "ec2:CreateSecurityGroup",
+      "ec2:DeleteSecurityGroup",
+      "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:RevokeSecurityGroupIngress",
+      "ec2:CreateTags",
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:Vpc"
+      values   = ["arn:aws:ec2:${data.aws_region.current.name}:${local.account_id}:vpc/${var.vpc_id}"]
+    }
+  }
+
+  statement {
+    sid = "EC2CreateTagsUnconditional"
+    actions = [
+      "ec2:CreateTags",
+    ]
+    resources = ["arn:aws:ec2:*:*:security-group/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "ec2:CreateAction"
+      values   = ["CreateSecurityGroup"]
+    }
+  }
+
+  statement {
+    sid = "IAMCreateServiceLinkedRole"
+    actions = [
+      "iam:CreateServiceLinkedRole",
+    ]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:AWSServiceName"
+      values   = ["elasticloadbalancing.amazonaws.com"]
+    }
+  }
+
+  statement {
+    sid = "WAFv2Regional"
+    actions = [
+      "wafv2:GetWebACL",
+      "wafv2:GetWebACLForResource",
+      "wafv2:AssociateWebACL",
+      "wafv2:DisassociateWebACL",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "ShieldDescribe"
+    actions = [
+      "shield:GetSubscriptionState",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "CognitoDescribe"
+    actions = [
+      "cognito-idp:DescribeUserPoolClient",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid = "ACMDescribe"
+    actions = [
+      "acm:ListCertificates",
+      "acm:DescribeCertificate",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "lb_controller" {
+  count  = var.enable_lb_controller ? 1 : 0
+  name   = "lb-controller-policy"
+  role   = aws_iam_role.lb_controller[0].id
+  policy = data.aws_iam_policy_document.lb_controller[0].json
+}
+
+resource "aws_eks_pod_identity_association" "lb_controller" {
+  count           = var.enable_lb_controller ? 1 : 0
+  cluster_name    = var.cluster_name
+  namespace       = "kube-system"
+  service_account = "aws-load-balancer-controller"
+  role_arn        = aws_iam_role.lb_controller[0].arn
+}

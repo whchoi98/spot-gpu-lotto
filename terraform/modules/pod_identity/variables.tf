@@ -20,3 +20,15 @@ variable "spot_region_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_lb_controller" {
+  description = "Create IAM role + Pod Identity for AWS Load Balancer Controller"
+  type        = bool
+  default     = false
+}
+
+variable "vpc_id" {
+  description = "VPC ID (required when enable_lb_controller = true)"
+  type        = string
+  default     = ""
+}

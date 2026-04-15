@@ -336,8 +336,10 @@ module "pod_identity_seoul" {
   source    = "../../modules/pod_identity"
   providers = { aws = aws.seoul }
 
-  cluster_name  = module.eks_seoul.cluster_name
-  s3_bucket_arn = module.s3.bucket_arn
+  cluster_name         = module.eks_seoul.cluster_name
+  s3_bucket_arn        = module.s3.bucket_arn
+  enable_lb_controller = true
+  vpc_id               = module.vpc_seoul.vpc_id
 }
 
 # ============================================================

@@ -37,5 +37,13 @@ networkPolicy:
 nodeSelector:
   kubernetes.io/arch: arm64
 
+targetGroupBinding:
+  enabled: true
+  albSecurityGroupId: "sg-0a2e31c5b781cef03"
+  apiServer:
+    targetGroupARN: "arn:aws:elasticloadbalancing:ap-northeast-2:660619595884:targetgroup/gpu-lotto-dev-api/454ec84ea25355cc"
+  frontend:
+    targetGroupARN: "arn:aws:elasticloadbalancing:ap-northeast-2:660619595884:targetgroup/gpu-lotto-dev-frontend/c41d246e0a8cd8dc"
+
 monitoring:
   enabled: true

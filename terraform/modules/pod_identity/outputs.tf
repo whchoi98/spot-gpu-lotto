@@ -14,3 +14,7 @@ output "price_watcher_role_arn" {
 output "gpu_worker_role_arn" {
   value = aws_iam_role.gpu_worker.arn
 }
+
+output "lb_controller_role_arn" {
+  value = var.enable_lb_controller ? aws_iam_role.lb_controller[0].arn : ""
+}
