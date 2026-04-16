@@ -1,0 +1,22 @@
+# TargetGroupBinding for Grafana (monitoring namespace)
+# Auto-syncs Grafana Pod IP to ALB target group on pod restart.
+# Grafana is deployed by kube-prometheus-stack, separate from gpu-lotto Helm chart.
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  serviceRef:
+    name: kube-prometheus-stack-grafana
+    port: 80
+  targetGroupARN: arn:aws:elasticloadbalancing:ap-northeast-2:660619595884:targetgroup/gpu-lotto-dev-grafana/2afae85030f90eaa
+  targetType: ip
+  networking:
+    ingress:
+      - from:
+          - securityGroup:
+              groupID: sg-0a2e31c5b781cef03
+        ports:
+          - port: 3000
+            protocol: TCP
