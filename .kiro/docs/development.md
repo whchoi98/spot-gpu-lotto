@@ -69,6 +69,31 @@ agentcore invoke '{"prompt": "Show me current spot prices"}'
 | `CLUSTER_PREFIX` | `gpu-lotto-dev` | EKS cluster name prefix |
 | `API_SERVER_URL` | CloudFront URL | API base URL for agent tools |
 | `PRICE_POLL_INTERVAL` | `60` | Price polling seconds |
+| `S3_BUCKET` | — | Seoul S3 hub bucket name |
+
+## Docker Build
+```bash
+# Backend (from project root, --target for multi-stage)
+docker buildx build --builder amd64builder --platform linux/arm64 --target <service> \
+  -t 660619595884.dkr.ecr.ap-northeast-2.amazonaws.com/gpu-lotto/<service>:<tag> --push .
+
+# Frontend (from frontend/)
+docker buildx build --builder amd64builder --platform linux/arm64 \
+  -f Dockerfile.prod -t 660619595884.dkr.ecr.ap-northeast-2.amazonaws.com/gpu-lotto/frontend:<tag> --push .
+```
+
+## Helm Deploy
+```bash
+helm upgrade gpu-lotto helm/gpu-lotto -n gpu-lotto -f helm/gpu-lotto/values-dev.yaml
+kubectl rollout restart deploy/gpu-lotto-api-server deploy/gpu-lotto-dispatcher -n gpu-lotto
+```
+
+## Terraform
+```bash
+cd terraform/envs/dev
+terraform plan
+terraform apply
+```
 
 ## Testing
 ```bash
@@ -81,7 +106,9 @@ pytest -v                          # all
 | Issue | Fix |
 |-------|-----|
 | Redis connection error | Set `REDIS_URL=redis://localhost:6379` |
-| K8s API timeout | Ensure `K8S_MODE=dry-run` |
+| K8s API timeout | Ensure `K8S_MODE=dry-run` for local dev |
 | Frontend build fails | `rm -rf node_modules && npm install` |
 | Docker buildx missing | `docker buildx create --name amd64builder --use` |
 | Agent chat 502 | Check `AGENT_MODEL` and Bedrock access in us-east-1 |
+| ALB target unhealthy | Pod IP changed — wait for TargetGroupBinding re-sync |
+| FSx PV apply fails | Run `envsubst` with required vars before `kubectl apply` |

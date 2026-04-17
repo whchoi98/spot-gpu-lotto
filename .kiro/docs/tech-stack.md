@@ -8,7 +8,7 @@
 | boto3 / aioboto3 | EC2 Spot API, S3 presigned URLs, Bedrock Converse |
 | kubernetes | Pod creation in remote EKS clusters |
 | pydantic v2 | Request/response validation |
-| pydantic-settings | Environment variable config |
+| pydantic-settings | Environment variable config (cached via `@lru_cache`) |
 | structlog | Structured JSON logging |
 | prometheus-client | Metrics export |
 | sse-starlette | Server-Sent Events streaming |
@@ -27,6 +27,7 @@
 | axios | HTTP client |
 | react-router-dom v6 | Client-side routing |
 | Lucide React | Icon library |
+| i18next | Internationalization core |
 
 ## Infrastructure
 | Tool | Purpose |
@@ -34,19 +35,21 @@
 | Terraform 1.x | IaC (13 modules) |
 | Helm 3 | Kubernetes package management |
 | Karpenter | GPU Spot node auto-provisioning |
-| FSx Lustre | High-performance filesystem (S3 sync) |
-| ElastiCache Redis 7 | In-memory data store |
-| CloudFront + ALB | CDN + load balancing |
+| FSx Lustre | High-performance filesystem (S3 auto-import/export) |
+| ElastiCache Redis 7 | In-memory data store (TLS enabled) |
+| CloudFront + ALB | CDN + load balancing (IP target type) |
 | Cognito | JWT authentication |
-| ECR | Container image registry |
+| ECR | Container image registry (immutable tags) |
 | Grafana + Prometheus | Monitoring dashboards (Helm-provisioned) |
 | AgentCore Runtime | Serverless Strands agent hosting (us-east-1) |
+| AWS LB Controller | TargetGroupBinding for Pod IP auto-sync to ALB |
+| EKS Pod Identity | IAM role binding for service accounts |
 
 ## Testing
 | Tool | Purpose |
 |------|---------|
-| pytest + pytest-asyncio | Test runner |
+| pytest + pytest-asyncio | Test runner (asyncio_mode=auto) |
 | fakeredis | In-memory Redis mock (unit tests) |
 | testcontainers[redis] | Real Redis in Docker (integration) |
-| ruff | Python linter |
-| mypy | Python type checker |
+| ruff | Python linter (E, F, I, N, W rules) |
+| mypy | Python type checker (strict mode) |
