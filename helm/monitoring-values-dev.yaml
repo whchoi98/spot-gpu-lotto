@@ -36,6 +36,9 @@ grafana:
     dashboards:
       enabled: true
       searchNamespace: ALL
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: false
 
 # Disable components not needed for dev
 alertmanager:

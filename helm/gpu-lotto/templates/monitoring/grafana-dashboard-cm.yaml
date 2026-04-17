@@ -307,13 +307,13 @@ data:
         {
           "type": "row",
           "title": "⚡ API Performance",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 30},
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 37},
           "collapsed": false
         },
         {
           "title": "API Latency Distribution",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 31},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 38},
           "targets": [
             {"expr": "histogram_quantile(0.50, rate(gpu_lotto_api_request_duration_seconds_bucket[5m]))", "legendFormat": "p50"},
             {"expr": "histogram_quantile(0.90, rate(gpu_lotto_api_request_duration_seconds_bucket[5m]))", "legendFormat": "p90"},
@@ -335,7 +335,7 @@ data:
         {
           "title": "API Request Rate",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 6, "x": 12, "y": 31},
+          "gridPos": {"h": 7, "w": 6, "x": 12, "y": 38},
           "targets": [{"expr": "rate(gpu_lotto_api_request_duration_seconds_count[5m]) * 60", "legendFormat": "req/min"}],
           "fieldConfig": {
             "defaults": {
@@ -349,7 +349,7 @@ data:
         {
           "title": "Price Collection Interval",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 6, "x": 18, "y": 31},
+          "gridPos": {"h": 7, "w": 6, "x": 18, "y": 38},
           "targets": [{"expr": "rate(gpu_lotto_price_fetch_errors_total[5m]) * 300", "legendFormat": "errors/5m"}],
           "fieldConfig": {
             "defaults": {
@@ -364,13 +364,13 @@ data:
         {
           "type": "row",
           "title": "🏗 Infrastructure — Pods",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 38},
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 45},
           "collapsed": false
         },
         {
           "title": "CPU Usage by Pod",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 39},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 46},
           "targets": [{"expr": "sum by(pod) (rate(container_cpu_usage_seconds_total{namespace=~\"$namespace\", container!=\"\", container!=\"POD\"}[5m]))", "legendFormat": "{{`{{pod}}`}}"}],
           "fieldConfig": {
             "defaults": {
@@ -384,7 +384,7 @@ data:
         {
           "title": "Memory Usage by Pod",
           "type": "timeseries",
-          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 39},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 46},
           "targets": [{"expr": "sum by(pod) (container_memory_working_set_bytes{namespace=~\"$namespace\", container!=\"\", container!=\"POD\"})", "legendFormat": "{{`{{pod}}`}}"}],
           "fieldConfig": {
             "defaults": {
@@ -398,7 +398,7 @@ data:
         {
           "title": "Pod Ready Status",
           "type": "table",
-          "gridPos": {"h": 5, "w": 12, "x": 0, "y": 46},
+          "gridPos": {"h": 5, "w": 12, "x": 0, "y": 53},
           "targets": [{"expr": "kube_pod_status_ready{namespace=~\"$namespace\", condition=\"true\"}", "format": "table", "instant": true}],
           "fieldConfig": {
             "defaults": {},
@@ -424,7 +424,7 @@ data:
         {
           "title": "Deployment Replicas",
           "type": "bargauge",
-          "gridPos": {"h": 5, "w": 12, "x": 12, "y": 46},
+          "gridPos": {"h": 5, "w": 12, "x": 12, "y": 53},
           "targets": [{"expr": "kube_deployment_spec_replicas{namespace=~\"$namespace\"}", "legendFormat": "{{`{{deployment}}`}}", "instant": true}],
           "fieldConfig": {
             "defaults": {
@@ -439,13 +439,13 @@ data:
         {
           "type": "row",
           "title": "🖥 Nodes",
-          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 51},
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 58},
           "collapsed": false
         },
         {
           "title": "Node CPU Usage %",
           "type": "gauge",
-          "gridPos": {"h": 5, "w": 8, "x": 0, "y": 52},
+          "gridPos": {"h": 5, "w": 8, "x": 0, "y": 59},
           "targets": [{"expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "{{`{{instance}}`}}"}],
           "fieldConfig": {
             "defaults": {
@@ -459,7 +459,7 @@ data:
         {
           "title": "Node Memory Usage %",
           "type": "gauge",
-          "gridPos": {"h": 5, "w": 8, "x": 8, "y": 52},
+          "gridPos": {"h": 5, "w": 8, "x": 8, "y": 59},
           "targets": [{"expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)", "legendFormat": "{{`{{instance}}`}}"}],
           "fieldConfig": {
             "defaults": {
@@ -473,7 +473,7 @@ data:
         {
           "title": "Network I/O",
           "type": "timeseries",
-          "gridPos": {"h": 5, "w": 8, "x": 16, "y": 52},
+          "gridPos": {"h": 5, "w": 8, "x": 16, "y": 59},
           "targets": [
             {"expr": "sum(rate(instance:node_network_receive_bytes_excluding_lo:rate5m[5m]))", "legendFormat": "⬇ Receive"},
             {"expr": "-sum(rate(instance:node_network_transmit_bytes_excluding_lo:rate5m[5m]))", "legendFormat": "⬆ Transmit"}
